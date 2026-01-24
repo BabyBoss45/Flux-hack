@@ -20,6 +20,7 @@ from PIL import Image
 import httpx
 import anthropic
 from dotenv import load_dotenv
+from .button_position_analyzer import analyze_button_positions
 
 load_dotenv()
 
@@ -106,13 +107,24 @@ class FloorPlanAnalyzer:
             annotated_image.save(output_buffer, format='PNG')
             annotated_base64 = base64.b64encode(output_buffer.getvalue()).decode('utf-8')
             
+            # Extract button positions using separate LLM analyzer
+            print("Extracting button positions from annotated image...")
+            room_buttons = analyze_button_positions(
+                annotated_base64,
+                rooms_data,
+                width,
+                height
+            )
+            
             # Calculate total area
             total_area = sum(r.get('area_sqft', 0) for r in rooms_data)
             
             return {
                 "status": "success",
                 "rooms": rooms_data,
+                "room_buttons": room_buttons,
                 "annotated_image_base64": annotated_base64,
+                "image_dimensions": {"width": width, "height": height},
                 "total_area_sqft": total_area,
                 "room_count": len(rooms_data)
             }
@@ -122,7 +134,9 @@ class FloorPlanAnalyzer:
                 "status": "error",
                 "error": str(e),
                 "rooms": [],
+                "room_buttons": [],
                 "annotated_image_base64": None,
+                "image_dimensions": {"width": 0, "height": 0},
                 "total_area_sqft": 0,
                 "room_count": 0
             }

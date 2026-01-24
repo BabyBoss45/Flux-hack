@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Floor Plan Analyzer - Room Button Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .upload-section {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .upload-form {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            padding: 12px 30px;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .file-input-label:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .analyze-btn {
+            padding: 12px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .analyze-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .analyze-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+
+        .floor-plan-section {
+            position: relative;
+        }
+
+        .floor-plan-container {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .floor-plan-image {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .room-buttons-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .room-button {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            padding: 10px 20px;
+            border: 2px solid #fff;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.75);
+            color: white;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            pointer-events: auto;
+            z-index: 10;
+            backdrop-filter: blur(5px);
+        }
+
+        .room-button:hover {
+            background: rgba(0, 0, 0, 0.95);
+            transform: translate(-50%, -50%) scale(1.1);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        }
+
+        .room-button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #fff;
+            transform: translate(-50%, -50%) scale(1.15);
+        }
+
+        /* Color coding by room type */
+        .room-button.bedroom { border-color: #90EE90; }
+        .room-button.living_room { border-color: #FFB6C1; }
+        .room-button.kitchen { border-color: #FFA500; }
+        .room-button.bathroom { border-color: #87CEEB; }
+        .room-button.dining_room { border-color: #DDA0DD; }
+        .room-button.closet { border-color: #D3D3D3; }
+        .room-button.hallway { border-color: #F0E68C; }
+
+        .info-panel {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            max-height: 800px;
+            overflow-y: auto;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .room-details {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .room-details.active {
+            display: block;
+        }
+
+        .room-details h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .room-details .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .room-details .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .room-details .label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .room-details .value {
+            color: #6c757d;
+        }
+
+        .room-list {
+            margin-top: 20px;
+        }
+
+        .room-list h3 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .room-list-item {
+            background: white;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 4px solid transparent;
+        }
+
+        .room-list-item:hover {
+            background: #f8f9fa;
+            border-left-color: #667eea;
+        }
+
+        .room-list-item.active {
+            background: #e7f1ff;
+            border-left-color: #667eea;
+        }
+
+        .room-list-item .name {
+            font-weight: 600;
+            color: #212529;
+        }
+
+        .room-list-item .area {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .empty-state svg {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏠 Floor Plan Analyzer</h1>
+            <p>Upload a floor plan to see interactive room buttons</p>
+        </div>
+
+        <div class="upload-section">
+            <form class="upload-form" id="upload-form">
+                <div class="file-input-wrapper">
+                    <input type="file" id="floor-plan-input" accept="image/*">
+                    <label for="floor-plan-input" class="file-input-label">
+                        📁 Choose Floor Plan
+                    </label>
+                </div>
+                <button type="submit" class="analyze-btn" id="analyze-btn">
+                    🔍 Analyze Floor Plan
+                </button>
+            </form>
+            <div id="file-name" style="text-align: center; margin-top: 10px; color: #6c757d;"></div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Analyzing floor plan... This may take a moment.</p>
+        </div>
+
+        <div class="content" id="content" style="display: none;">
+            <div class="floor-plan-section">
+                <div class="floor-plan-container">
+                    <img id="floor-plan-image" class="floor-plan-image" src="" alt="Floor Plan">
+                    <div id="room-buttons-overlay" class="room-buttons-overlay"></div>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="label">Total Rooms</div>
+                        <div class="value" id="room-count">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Total Area</div>
+                        <div class="value" id="total-area">0 sq ft</div>
+                    </div>
+                </div>
+
+                <div class="room-details" id="room-details">
+                    <h2 id="room-name">Select a room</h2>
+                    <div id="room-info"></div>
+                </div>
+
+                <div class="room-list">
+                    <h3>All Rooms</h3>
+                    <div id="room-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="empty-state" id="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+            <h3>No Floor Plan Loaded</h3>
+            <p>Upload a floor plan image to get started</p>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        let floorPlanData = null;
+        let selectedRoom = null;
+
+        // File input handler
+        document.getElementById('floor-plan-input').addEventListener('change', (e) => {
+            const fileName = e.target.files[0]?.name || '';
+            document.getElementById('file-name').textContent = fileName ? `Selected: ${fileName}` : '';
+        });
+
+        // Form submit handler
+        document.getElementById('upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('floor-plan-input');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a floor plan image');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('content').style.display = 'none';
+            document.getElementById('empty-state').style.display = 'none';
+            
+            try {
+                const formData = new FormData();
+                formData.append('image', file);
+                
+                const response = await fetch(`${API_URL}/analyze`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    floorPlanData = data;
+                    renderFloorPlan(data);
+                } else {
+                    alert('Analysis failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to analyze floor plan. Make sure the API server is running.');
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+            }
+        });
+
+        function renderFloorPlan(data) {
+            // Show content
+            document.getElementById('content').style.display = 'grid';
+            
+            // Display annotated image
+            const img = document.getElementById('floor-plan-image');
+            img.src = `data:image/png;base64,${data.annotated_image_base64}`;
+            
+            // Update stats
+            document.getElementById('room-count').textContent = data.room_count;
+            document.getElementById('total-area').textContent = `${data.total_area_sqft} sq ft`;
+            
+            // Render room buttons
+            const overlay = document.getElementById('room-buttons-overlay');
+            overlay.innerHTML = '';
+            
+            data.room_buttons.forEach(button => {
+                const roomData = button.room_data;
+                
+                const btn = document.createElement('button');
+                btn.className = `room-button ${roomData.type}`;
+                btn.textContent = roomData.name;
+                btn.style.left = `${button.x_percent}%`;
+                btn.style.top = `${button.y_percent}%`;
+                
+                btn.onclick = () => selectRoom(roomData, btn);
+                
+                overlay.appendChild(btn);
+            });
+            
+            // Render room list
+            renderRoomList(data.room_buttons);
+            
+            // Select first room by default
+            if (data.room_buttons.length > 0) {
+                selectRoom(data.room_buttons[0].room_data);
+            }
+        }
+
+        function renderRoomList(roomButtons) {
+            const list = document.getElementById('room-list');
+            list.innerHTML = '';
+            
+            roomButtons.forEach(button => {
+                const roomData = button.room_data;
+                
+                const item = document.createElement('div');
+                item.className = 'room-list-item';
+                item.innerHTML = `
+                    <div class="name">${roomData.name}</div>
+                    <div class="area">${roomData.area_sqft} sq ft</div>
+                `;
+                
+                item.onclick = () => selectRoom(roomData, null);
+                
+                list.appendChild(item);
+            });
+        }
+
+        function selectRoom(roomData, buttonElement) {
+            selectedRoom = roomData;
+            
+            // Update button states
+            document.querySelectorAll('.room-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            if (buttonElement) {
+                buttonElement.classList.add('active');
+            } else {
+                // Find button by room name
+                document.querySelectorAll('.room-button').forEach(btn => {
+                    if (btn.textContent === roomData.name) {
+                        btn.classList.add('active');
+                    }
+                });
+            }
+            
+            // Update list item states
+            document.querySelectorAll('.room-list-item').forEach((item, index) => {
+                item.classList.remove('active');
+                if (floorPlanData.room_buttons[index].room_data.name === roomData.name) {
+                    item.classList.add('active');
+                }
+            });
+            
+            // Show room details
+            const detailsPanel = document.getElementById('room-details');
+            detailsPanel.classList.add('active');
+            
+            document.getElementById('room-name').textContent = roomData.name;
+            
+            const infoHTML = `
+                <div class="detail-row">
+                    <span class="label">Type:</span>
+                    <span class="value">${roomData.type.replace('_', ' ')}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Area:</span>
+                    <span class="value">${roomData.area_sqft} sq ft (${roomData.area_sqm} sq m)</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Dimensions:</span>
+                    <span class="value">${roomData.dimensions?.length || 'N/A'} × ${roomData.dimensions?.width || 'N/A'}</span>
+                </div>
+                ${roomData.fixtures?.length ? `
+                <div class="detail-row">
+                    <span class="label">Fixtures:</span>
+                    <span class="value">${roomData.fixtures.join(', ')}</span>
+                </div>
+                ` : ''}
+                ${roomData.adjacent_rooms?.length ? `
+                <div class="detail-row">
+                    <span class="label">Adjacent Rooms:</span>
+                    <span class="value">${roomData.adjacent_rooms.join(', ')}</span>
+                </div>
+                ` : ''}
+            `;
+            
+            document.getElementById('room-info').innerHTML = infoHTML;
+        }
+    </script>
+</body>
+</html>
