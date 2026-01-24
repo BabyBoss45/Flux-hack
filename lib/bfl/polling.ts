@@ -10,6 +10,12 @@ export interface PollResult {
 }
 
 export async function pollForResult(jobId: string): Promise<PollResult> {
+  // If the "job id" is already a URL (our Runware integration returns URLs directly),
+  // we can short-circuit and return immediately.
+  if (jobId.startsWith('http://') || jobId.startsWith('https://')) {
+    return { success: true, imageUrl: jobId };
+  }
+
   const startTime = Date.now();
 
   while (Date.now() - startTime < POLL_TIMEOUT_MS) {
