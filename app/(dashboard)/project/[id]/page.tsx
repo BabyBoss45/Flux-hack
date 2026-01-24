@@ -14,6 +14,8 @@ import { FloorplanUploader } from '@/components/floorplan/floorplan-uploader';
 import { ManualRoomEntry } from '@/components/floorplan/manual-room-entry';
 import { PreferencesDialog } from '@/components/project/preferences-dialog';
 import { ShareDialog } from '@/components/project/share-dialog';
+import { useChat } from '@/hooks/use-chat';
+import { ImageGeneration } from '@/components/ui/ai-chat-image-generation-1';
 
 interface Project {
   id: number;
@@ -55,6 +57,8 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [shareOpen, setShareOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingImageId, setEditingImageId] = useState<number | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   // Calculate current step
   const allRoomsApproved = rooms.length > 0 && rooms.every((r) => r.approved);
@@ -141,6 +145,57 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const handleEditImage = (imageId: number) => {
     setEditingImageId(imageId);
     setEditDialogOpen(true);
+  };
+
+  const handleEditSubmit = async (_imageId: number, prompt: string) => {
+    sendMessage(`Please edit the image: ${prompt}`);
+  };
+
+  const handleTestGenerateImage = async () => {
+    if (!selectedRoomId) return;
+    setGenerating(true);
+    setGenerateError(null);
+    try {
+      const res = await fetch(`/api/rooms/${selectedRoomId}/generate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'generate_room_image',
+          roomId: selectedRoomId,
+          description:
+            'A cozy modern living room with a large sectional sofa, warm wood flooring, and soft ambient lighting.',
+          viewType: 'perspective',
+          dimensions: { width: 1024, height: 768 },
+          style: 'modern',
+          colorPalette:
+            'warm neutrals with soft beige and tan, black metal accents',
+          camera: { angle: 'eye-level', lens: 'wide' },
+          runware: { steps: 30, cfgScale: 7.5, model: 'runware:101@1', numberResults: 1 },
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Request failed with ${res.status}`);
+      }
+
+      // Refresh room images after generation
+      if (selectedRoomId) {
+        const imagesRes = await fetch(`/api/rooms/${selectedRoomId}/images`);
+        if (imagesRes.ok) {
+          const data = await imagesRes.json();
+          setRoomImages(data.images || []);
+          setCurrentImageIndex(0);
+        }
+      }
+    } catch (err) {
+      console.error('Test generate image failed:', err);
+      setGenerateError(
+        err instanceof Error ? err.message : 'Failed to generate image'
+      );
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
@@ -265,7 +320,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
         <main className="flex-1 flex overflow-hidden">
           {/* Left column: Room selection + preview */}
-          <div className="w-80 border-r border-white/10 flex flex-col bg-surface/50">
+          <div className="w-1/2 border-r border-white/10 flex flex-col bg-surface/50">
             <div className="p-4 border-b border-white/10">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold text-white">{project.name}</h2>
@@ -278,6 +333,23 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   <Settings className="w-4 h-4" />
                 </Button>
               </div>
+              {/* Temporary test button to trigger image generation without chat */}
+              {selectedRoomId && (
+                <div className="mb-3 space-y-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleTestGenerateImage}
+                    disabled={generating}
+                    className="w-full border-accent-warm/60 text-accent-warm hover:bg-accent-warm/10"
+                  >
+                    {generating ? 'Generating image…' : 'Test generate image'}
+                  </Button>
+                  {generateError && (
+                    <p className="text-xs text-red-400">{generateError}</p>
+                  )}
+                </div>
+              )}
               <RoomGrid
                 rooms={rooms.map((r) => ({ ...r, approved: r.approved === 1 }))}
                 selectedRoomId={selectedRoomId}
@@ -286,12 +358,22 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             </div>
 
             {/* Room preview / images */}
-            <div className="flex-1 overflow-hidden">
-              <RoomImageViewer
-                images={roomImages}
-                currentIndex={currentImageIndex}
-                onIndexChange={setCurrentImageIndex}
-              />
+            <div className="flex-1 overflow-hidden flex items-center justify-center">
+              {generating ? (
+                <ImageGeneration className="mx-4">
+                  <div className="flex-1 flex items-center justify-center bg-white/5 min-h-[240px]">
+                    <div className="text-center text-white/60 text-sm">
+                      Generating a new design for this room...
+                    </div>
+                  </div>
+                </ImageGeneration>
+              ) : (
+                <RoomImageViewer
+                  images={roomImages}
+                  currentIndex={currentImageIndex}
+                  onIndexChange={setCurrentImageIndex}
+                />
+              )}
             </div>
           </div>
 

@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight, ZoomIn, Download, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from '@/components/ui/dialog';
 
 interface RoomImage {
   id: number;
@@ -72,14 +72,14 @@ export function RoomImageViewer({
   return (
     <div className="flex-1 flex flex-col bg-white/5">
       {/* Main image */}
-      <div className="flex-1 relative flex items-center justify-center p-4">
+      <div className="flex-1 relative flex items-center justify-center p-4 overflow-hidden">
         <Dialog>
           <DialogTrigger asChild>
             <button className="relative group cursor-zoom-in">
               <img
                 src={currentImage.url}
                 alt={currentImage.prompt}
-                className="max-h-full max-w-full rounded-lg shadow-lg"
+                className="max-h-full max-w-full object-contain rounded-lg shadow-lg"
               />
               <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
                 <ZoomIn className="w-8 h-8 text-white" />
@@ -87,6 +87,9 @@ export function RoomImageViewer({
             </button>
           </DialogTrigger>
           <DialogContent className="max-w-5xl bg-surface border-white/10">
+            <DialogTitle className="sr-only">
+              Room image: {currentImage.prompt}
+            </DialogTitle>
             <img
               src={currentImage.url}
               alt={currentImage.prompt}
