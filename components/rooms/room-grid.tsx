@@ -16,13 +16,13 @@ interface RoomGridProps {
 
 export function RoomGrid({ rooms, selectedRoomId, onSelectRoom }: RoomGridProps) {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 gap-2">
       {rooms.map((room) => (
         <button
           key={room.id}
           onClick={() => onSelectRoom(room.id)}
           className={`
-            relative p-4 rounded-lg text-left transition-all
+            relative p-3 rounded-lg text-left transition-all
             ${
               selectedRoomId === room.id
                 ? 'border-2 border-accent-warm bg-accent-warm/10'
@@ -30,7 +30,7 @@ export function RoomGrid({ rooms, selectedRoomId, onSelectRoom }: RoomGridProps)
             }
           `}
         >
-          <span className="font-medium text-white text-sm">{room.name}</span>
+          <span className="font-medium text-white text-xs">{room.name}</span>
 
           {room.approved && (
             <div className="absolute top-2 right-2">

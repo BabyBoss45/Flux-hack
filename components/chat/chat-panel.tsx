@@ -75,7 +75,7 @@ export function ChatPanel({
   };
 
   return (
-    <div className="panel h-full flex flex-col">
+    <div className="panel h-full flex flex-col max-h-[calc(100vh-120px)]">
       <div className="panel-header">
         <h2 className="text-lg font-semibold text-white">Design Assistant</h2>
       </div>
@@ -83,7 +83,7 @@ export function ChatPanel({
       {/* Messages area */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4"
+        className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0"
       >
         {messages.length === 0 ? (
           <div className="text-center text-white/50 py-8">

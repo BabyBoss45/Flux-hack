@@ -26,7 +26,7 @@ export function RoomImageViewer({
 }: RoomImageViewerProps) {
   if (images.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-white/5">
+      <div className="flex items-center justify-center min-h-[400px] max-h-[600px]">
         <div className="text-center">
           <Image className="w-8 h-8 mx-auto mb-2 text-white/30" />
           <p className="text-white/50 text-sm">No images yet</p>
@@ -70,16 +70,16 @@ export function RoomImageViewer({
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-white/5">
-      {/* Main image */}
-      <div className="flex-1 relative flex items-center justify-center p-4 overflow-hidden">
+    <div className="flex flex-col w-full max-h-[700px]">
+      {/* Main image - constrained size with breathing room */}
+      <div className="relative flex items-center justify-center overflow-hidden p-4 pb-4">
         <Dialog>
           <DialogTrigger asChild>
-            <button className="relative group cursor-zoom-in">
+            <button className="relative group cursor-zoom-in w-full flex items-center justify-center">
               <img
                 src={currentImage.url}
                 alt={currentImage.prompt}
-                className="max-h-full max-w-full object-contain rounded-lg shadow-lg"
+                className="max-h-[500px] max-w-full object-contain rounded-lg shadow-lg"
               />
               <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
                 <ZoomIn className="w-8 h-8 text-white" />
