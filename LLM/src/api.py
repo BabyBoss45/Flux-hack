@@ -1,31 +1,45 @@
 """
-Floor Plan Analyzer API
+Floor Plan & Furniture Analyzer API
 
-Simple FastAPI server for floor plan analysis.
+FastAPI server for:
+- Floor plan analysis (room detection)
+- Furniture identification (objects, colors, styles)
+- Product search (find similar items online)
 
 Endpoints:
-    POST /analyze - Analyze floor plan, returns JSON + image
+    POST /analyze - Analyze floor plan
+    POST /analyze-furniture - Identify furniture in room images
+    POST /search-products - Find where to buy similar furniture
+    POST /analyze-and-shop - Combined: identify + search
     GET /health - Health check
 """
 
 import os
 import base64
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from .floor_plan_analyzer import FloorPlanAnalyzer
+from .furniture_analyzer import FurnitureAnalyzer
+from .product_search import ProductSearchAgent, VisualSearchAgent
 
 load_dotenv()
 
 app = FastAPI(
-    title="Floor Plan Analyzer API",
-    description="Analyze floor plans using RasterScan + Claude Vision API",
-    version="2.0.0"
+    title="Floor Plan & Furniture Analyzer API",
+    description="Analyze floor plans, identify furniture, and find products online",
+    version="3.0.0"
 )
+
+# Initialize analyzers
+furniture_analyzer = FurnitureAnalyzer()
+product_search_agent = ProductSearchAgent()
+visual_search_agent = VisualSearchAgent()
 
 app.add_middleware(
     CORSMiddleware,
@@ -133,15 +147,173 @@ async def analyze_get_image(
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
+@app.post("/analyze-furniture")
+async def analyze_furniture_endpoint(
+    image: UploadFile = File(...)
+):
+    """
+    Analyze a room design image to identify furniture.
+    
+    Args:
+        image: Room design/interior image (PNG, JPEG, etc.)
+    
+    Returns:
+        JSON with:
+            - status: "success" or "error"
+            - objects: List of furniture items with colors and tags
+            - overall_style: Room style/genre
+            - color_palette: Dominant colors
+    """
+    try:
+        content = await image.read()
+        
+        valid, message = validate_image(image.filename, content)
+        if not valid:
+            raise HTTPException(status_code=400, detail=message)
+        
+        result = furniture_analyzer.analyze(content)
+        return JSONResponse(content=result)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+class FurnitureObject(BaseModel):
+    name: str
+    category: str
+    primary_color: str = ""
+    secondary_colors: List[str] = []
+    style_tags: List[str] = []
+    material_tags: List[str] = []
+    description: str = ""
+
+
+@app.post("/search-products")
+async def search_products_endpoint(
+    furniture: FurnitureObject
+):
+    """
+    Search for similar products online based on furniture details.
+    
+    Args:
+        furniture: Furniture object details (name, category, colors, style)
+    
+    Returns:
+        JSON with:
+            - status: "success" or "error"
+            - object: Furniture name
+            - search_queries: Generated search queries
+            - recommendations: List of product recommendations
+    """
+    try:
+        result = product_search_agent.search(furniture.model_dump())
+        return JSONResponse(content=result)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+
+@app.post("/analyze-and-shop")
+async def analyze_and_shop_endpoint(
+    image: UploadFile = File(...)
+):
+    """
+    Combined: Analyze furniture in image AND search for similar products.
+    
+    Args:
+        image: Room design/interior image (PNG, JPEG, etc.)
+    
+    Returns:
+        JSON with:
+            - status: "success" or "error"
+            - objects: List of furniture items with shopping recommendations
+            - overall_style: Room style
+            - color_palette: Dominant colors
+    """
+    try:
+        content = await image.read()
+        
+        valid, message = validate_image(image.filename, content)
+        if not valid:
+            raise HTTPException(status_code=400, detail=message)
+        
+        # Step 1: Analyze furniture
+        analysis = furniture_analyzer.analyze(content)
+        
+        if analysis.get("status") != "success":
+            return JSONResponse(content=analysis)
+        
+        # Step 2: Search for real products for each object using ThorData
+        objects_with_shopping = []
+        for obj in analysis.get("objects", []):
+            # Build search query from object details
+            name = obj.get("name", "")
+            category = obj.get("category", "")
+            style = obj.get("style_tags", [""])[0] if obj.get("style_tags") else ""
+            
+            search_query = f"{style} {category}" if style else category
+            
+            # Use ThorData visual search for real product link
+            search_result = visual_search_agent.search_products(search_query)
+            
+            obj_with_shopping = {
+                **obj,
+                "product": search_result.get("product")
+            }
+            objects_with_shopping.append(obj_with_shopping)
+        
+        # Extract object names list
+        object_names = [obj.get("name") for obj in objects_with_shopping]
+        
+        return JSONResponse(content={
+            "status": "success",
+            "object_names": object_names,
+            "objects": objects_with_shopping,
+            "overall_style": analysis.get("overall_style"),
+            "color_palette": analysis.get("color_palette", [])
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+@app.post("/visual-search")
+async def visual_search_endpoint(
+    query: str = Form(...)
+):
+    """
+    Search for products by description using ThorData Google Search.
+    
+    Args:
+        query: Product description (e.g., "grey fabric sofa")
+    
+    Returns single best matching product with real purchase link.
+    """
+    try:
+        result = visual_search_agent.search_products(query)
+        return JSONResponse(content=result)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+
 @app.get("/")
 async def root():
     """API info."""
     return {
-        "service": "Floor Plan Analyzer API",
-        "version": "2.0.0",
+        "service": "Floor Plan & Furniture Analyzer API",
+        "version": "3.0.0",
         "endpoints": {
             "POST /analyze": "Analyze floor plan, returns JSON with rooms and base64 image",
             "POST /analyze/image": "Analyze floor plan, returns PNG image directly",
+            "POST /analyze-furniture": "Identify furniture in room images",
+            "POST /search-products": "Find where to buy similar furniture",
+            "POST /analyze-and-shop": "Combined: identify furniture + search products",
+            "POST /visual-search": "Visual search: find matching products via Google Lens",
             "GET /health": "Health check"
         }
     }
