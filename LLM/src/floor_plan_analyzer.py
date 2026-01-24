@@ -78,9 +78,21 @@ class FloorPlanAnalyzer:
         """
         try:
             original_image = Image.open(io.BytesIO(image_bytes))
+
+            # Detect media type from image format
+            img_format = original_image.format
+            format_to_media_type = {
+                'PNG': 'image/png',
+                'JPEG': 'image/jpeg',
+                'JPG': 'image/jpeg',
+                'GIF': 'image/gif',
+                'WEBP': 'image/webp',
+            }
+            media_type = format_to_media_type.get(img_format, 'image/png')
+
             if original_image.mode != 'RGBA':
                 original_image = original_image.convert('RGBA')
-            
+
             width, height = original_image.size
             image_base64 = base64.b64encode(image_bytes).decode('utf-8')
             
@@ -93,7 +105,7 @@ class FloorPlanAnalyzer:
             print(f"RasterScan overlay: {'received' if rasterscan_image else 'failed/none'}")
             
             # Get room data from Claude
-            rooms_data = self._analyze_with_claude(image_base64, width, height, context)
+            rooms_data = self._analyze_with_claude(image_base64, width, height, context, media_type)
             
             # Create annotated image
             annotated_image = self._create_annotated_image(
@@ -202,11 +214,12 @@ class FloorPlanAnalyzer:
             return None
     
     def _analyze_with_claude(
-        self, 
-        image_base64: str, 
-        width: int, 
+        self,
+        image_base64: str,
+        width: int,
         height: int,
-        context: Optional[str] = None
+        context: Optional[str] = None,
+        media_type: str = "image/png"
     ) -> List[Dict]:
         """Extract room information using Claude Vision API."""
         if not self.claude_client:
@@ -263,7 +276,7 @@ Include ALL rooms. Be precise with dimensions shown in the plan."""
                             "type": "image",
                             "source": {
                                 "type": "base64",
-                                "media_type": "image/png",
+                                "media_type": media_type,
                                 "data": image_base64
                             }
                         },

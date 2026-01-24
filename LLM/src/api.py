@@ -101,17 +101,26 @@ async def analyze_floor_plan(
     """
     try:
         content = await image.read()
-        
+
         valid, message = validate_image(image.filename, content)
         if not valid:
             raise HTTPException(status_code=400, detail=message)
-        
+
+        file_size_mb = len(content) / (1024 * 1024)
+        print(f"[api] POST /analyze received: filename={image.filename}, size={file_size_mb:.2f}MB, context={context or 'none'}")
+
         result = await analyzer.analyze(content, context)
+
+        room_count = result.get('room_count', 0)
+        total_area = result.get('total_area_sqft', 0)
+        print(f"[api] POST /analyze complete: {room_count} rooms, {total_area} sqft")
+
         return JSONResponse(content=result)
-        
+
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[api] POST /analyze failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 

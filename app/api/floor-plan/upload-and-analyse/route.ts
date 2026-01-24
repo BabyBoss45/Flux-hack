@@ -45,6 +45,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
+    console.log(`[upload-and-analyse] Request received: projectId=${projectId}, filename=${file.name}, size=${(file.size / 1024 / 1024).toFixed(2)}MB, user=${session.user.id}`);
+
     // Validate file type
     const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
     if (!allowedTypes.includes(file.type)) {
@@ -62,6 +64,8 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    console.log(`[upload-and-analyse] File validated: type=${file.type}, size=${(file.size / 1024 / 1024).toFixed(2)}MB`);
 
     // Create SSE stream
     const encoder = new TextEncoder();
@@ -85,7 +89,11 @@ export async function POST(request: Request) {
           // Call LLM service
           let analysisResult: llmClient.LLMAnalysisResult;
           try {
+            console.log(`[upload-and-analyse] Calling LLM service for analysis...`);
+            const analysisStartTime = Date.now();
             analysisResult = await llmClient.analyzeFloorPlan(buffer, file.name);
+            const analysisTime = Date.now() - analysisStartTime;
+            console.log(`[upload-and-analyse] LLM analysis complete: ${analysisResult.room_count} rooms detected, ${analysisResult.total_area_sqft} sqft, took ${analysisTime}ms`);
           } catch (error) {
             controller.enqueue(
               encoder.encode(
@@ -113,12 +121,14 @@ export async function POST(request: Request) {
 
           // Save original floor plan
           const { url: floor_plan_url } = await saveFile(file, 'floor-plans');
+          console.log(`[upload-and-analyse] Original floor plan saved: ${floor_plan_url}`);
 
           // Save annotated image
           const { url: annotated_floor_plan_url } = await saveBase64Image(
             analysisResult.annotated_image_base64,
             'floor-plans'
           );
+          console.log(`[upload-and-analyse] Annotated floor plan saved: ${annotated_floor_plan_url}`);
 
           // Update project with both URLs
           updateProject(projectId, {
@@ -140,8 +150,10 @@ export async function POST(request: Request) {
               rooms.push(room);
             }
           }
+          console.log(`[upload-and-analyse] Created ${rooms.length} room records in database`);
 
           // Send complete event
+          console.log(`[upload-and-analyse] Upload flow complete: projectId=${projectId}, rooms=${rooms.length}`);
           controller.enqueue(
             encoder.encode(
               formatSSE({
@@ -159,7 +171,7 @@ export async function POST(request: Request) {
 
           controller.close();
         } catch (error) {
-          console.error('Upload error:', error);
+          console.error(`[upload-and-analyse] Error during upload flow:`, error);
           controller.enqueue(
             encoder.encode(
               formatSSE({
@@ -183,7 +195,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error(`[upload-and-analyse] Error during upload flow:`, error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Upload failed' },
       { status: 500 }

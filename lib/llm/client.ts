@@ -86,6 +86,10 @@ export async function analyzeFloorPlan(
       formData.append('context', context);
     }
 
+    const fileSizeMB = (buffer.length / 1024 / 1024).toFixed(2);
+    console.log(`[llm-client] POST /analyze - sending image: ${filename} (${fileSizeMB}MB), context: ${context || 'none'}`);
+    const requestStartTime = Date.now();
+
     const response = await fetch(`${LLM_SERVICE_URL}/analyze`, {
       method: 'POST',
       body: formData,
@@ -98,9 +102,12 @@ export async function analyzeFloorPlan(
     }
 
     const result = await response.json();
+    const requestTime = Date.now() - requestStartTime;
+    console.log(`[llm-client] Response received: ${result.room_count} rooms detected, ${result.total_area_sqft} sqft, took ${requestTime}ms`);
     return result;
   } catch (error) {
     if (error instanceof Error) {
+      console.error(`[llm-client] Request failed: ${error.message}`);
       if (error.name === 'AbortError') {
         throw new Error('LLM analysis timed out after 60 seconds');
       }
