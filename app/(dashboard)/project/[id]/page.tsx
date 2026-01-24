@@ -12,6 +12,8 @@ import { ChatWrapper } from '@/components/chat/chat-wrapper';
 import { ItemEditDialog } from '@/components/chat/item-edit-dialog';
 import { FloorplanUploader } from '@/components/floorplan/floorplan-uploader';
 import { ManualRoomEntry } from '@/components/floorplan/manual-room-entry';
+import { ServiceStatusBanner } from '@/components/floorplan/service-status-banner';
+import { FloorPlanToggle } from '@/components/floorplan/floor-plan-toggle';
 import { PreferencesDialog } from '@/components/project/preferences-dialog';
 import { ShareDialog } from '@/components/project/share-dialog';
 import { ImageGeneration } from '@/components/ui/ai-chat-image-generation-1';
@@ -20,6 +22,7 @@ interface Project {
   id: number;
   name: string;
   floor_plan_url: string | null;
+  annotated_floor_plan_url: string | null;
   global_preferences: string;
 }
 
@@ -56,8 +59,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [shareOpen, setShareOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingImageId, setEditingImageId] = useState<number | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState(false);
+  const [selectedObject, setSelectedObject] = useState<{ id: string; label: string } | null>(null);
 
   // Calculate current step
   const allRoomsApproved = rooms.length > 0 && rooms.every((r) => r.approved);
@@ -104,8 +108,30 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         const res = await fetch(`/api/rooms/${selectedRoomId}/images`);
         if (res.ok) {
           const data = await res.json();
+          
+          // Debug: Log what frontend receives
+          console.log('=== FRONTEND RECEIVED IMAGES ===');
+          if (data.images) {
+            data.images.forEach((img: any, index: number) => {
+              console.log(`Frontend Image ${index}:`, {
+                id: img.id,
+                url: img.url,
+                detected_items: img.detected_items,
+                detected_items_type: typeof img.detected_items,
+                detected_items_length: img.detected_items?.length,
+                detected_items_is_null: img.detected_items === null,
+                detected_items_is_undefined: img.detected_items === undefined,
+                detected_items_is_empty: img.detected_items === '',
+                all_keys: Object.keys(img),
+                full_object: img,
+              });
+            });
+          }
+          
           setRoomImages(data.images || []);
-          setCurrentImageIndex(0);
+          if (data.images?.length > 0) {
+            setCurrentImageIndex(0);
+          }
         }
       } catch (error) {
         console.error('Failed to fetch room images:', error);
@@ -115,14 +141,124 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     fetchRoomImages();
   }, [selectedRoomId]);
 
+  // REQUIREMENT 1: Handle image generation from chat - IMMEDIATE state update
+  const handleImageGenerated = async (imageUrl: string, detectedObjects: any[]) => {
+    // REQUIREMENT 2: Handle detectedObjects correctly - null means not detected, [] means empty
+    const detectedItemsJson = Array.isArray(detectedObjects) && detectedObjects.length > 0
+      ? JSON.stringify(detectedObjects)
+      : '[]';
+    
+    // IMMEDIATELY create and display the image (don't wait for API)
+    const tempImage: RoomImage = {
+      id: Date.now(), // Temporary ID (will be replaced when API syncs)
+      url: imageUrl,
+      prompt: 'Generated image',
+      view_type: 'perspective',
+      detected_items: detectedItemsJson,
+      created_at: new Date().toISOString(),
+    };
+    
+    // CRITICAL: Stop generation animation FIRST, then update images
+    // This ensures the render guard sees roomImages.length > 0 immediately
+    setIsGenerating(false);
+    
+    // REQUIREMENT 1: Update state IMMEDIATELY - this triggers UI update
+    setRoomImages([tempImage, ...roomImages]);
+    setCurrentImageIndex(0); // Show the latest image
+    
+    // Preload the image
+    setIsImageLoading(true);
+    const img = new window.Image();
+    img.src = imageUrl;
+    img.onload = () => {
+      setIsImageLoading(false);
+    };
+    img.onerror = () => {
+      setIsImageLoading(false);
+    };
+    
+    // Sync with API in background (non-blocking) to get proper IDs
+    setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/rooms/${selectedRoomId}/images`);
+        if (res.ok) {
+          const data = await res.json();
+          const newImages = data.images || [];
+          // Update with real data from API (includes proper IDs, etc.)
+          if (newImages.length > 0) {
+            setRoomImages(newImages);
+            setCurrentImageIndex(0);
+          }
+        }
+      } catch (error) {
+        // Silent fail - we already have the image displayed
+      }
+    }, 1000);
+  };
+
+  // Poll for new images when chat is active (to catch images generated by chat)
+  useEffect(() => {
+    if (!selectedRoomId) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/rooms/${selectedRoomId}/images`);
+        if (res.ok) {
+          const data = await res.json();
+          const newImageCount = data.images?.length || 0;
+          const currentImageCount = roomImages.length;
+          
+          // Only update if we have new images
+          if (newImageCount > currentImageCount) {
+            const newImages = data.images || [];
+            
+            setIsImageLoading(true);
+            setRoomImages(newImages);
+            setCurrentImageIndex(0);
+            
+            // Preload the image to ensure it's ready before hiding animation
+            if (newImages[0]?.url) {
+              const img = new Image();
+              img.onload = () => {
+                setIsImageLoading(false);
+              };
+              img.onerror = () => {
+                setIsImageLoading(false);
+              };
+              img.src = newImages[0].url;
+            } else {
+              setIsImageLoading(false);
+            }
+          }
+        }
+      } catch (error) {
+        // Silently fail polling
+      }
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [selectedRoomId, roomImages.length]);
+
   const handleRoomSelect = (roomId: number) => {
     setSelectedRoomId(roomId);
   };
 
-  const handleUploadComplete = (url: string) => {
+  const handleUploadComplete = (data: {
+    floor_plan_url: string;
+    annotated_floor_plan_url: string;
+    rooms: any[];
+    room_count: number;
+    total_area_sqft: number;
+  }) => {
     if (project) {
-      setProject({ ...project, floor_plan_url: url });
+      setProject({
+        ...project,
+        floor_plan_url: data.floor_plan_url,
+        annotated_floor_plan_url: data.annotated_floor_plan_url,
+      });
     }
+    // Reload to show detected rooms
+    window.location.reload();
   };
 
   const handleRoomsDetected = () => {
@@ -146,51 +282,11 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     setEditDialogOpen(true);
   };
 
-  const handleTestGenerateImage = async () => {
-    if (!selectedRoomId) return;
-    setGenerating(true);
-    setGenerateError(null);
-    try {
-      const res = await fetch(`/api/rooms/${selectedRoomId}/generate-image`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'generate_room_image',
-          roomId: selectedRoomId,
-          description:
-            'A cozy modern living room with a large sectional sofa, warm wood flooring, and soft ambient lighting.',
-          viewType: 'perspective',
-          dimensions: { width: 1024, height: 768 },
-          style: 'modern',
-          colorPalette:
-            'warm neutrals with soft beige and tan, black metal accents',
-          camera: { angle: 'eye-level', lens: 'wide' },
-          runware: { steps: 30, cfgScale: 7.5, model: 'runware:101@1', numberResults: 1 },
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `Request failed with ${res.status}`);
-      }
-
-      // Refresh room images after generation
-      if (selectedRoomId) {
-        const imagesRes = await fetch(`/api/rooms/${selectedRoomId}/images`);
-        if (imagesRes.ok) {
-          const data = await imagesRes.json();
-          setRoomImages(data.images || []);
-          setCurrentImageIndex(0);
-        }
-      }
-    } catch (err) {
-      console.error('Test generate image failed:', err);
-      setGenerateError(
-        err instanceof Error ? err.message : 'Failed to generate image'
-      );
-    } finally {
-      setGenerating(false);
-    }
+  const handleObjectSelect = (object: { id: string; label: string; category: string; bbox: [number, number, number, number] }) => {
+    setSelectedObject({ id: object.id, label: object.label });
+    
+    // Auto-focus chat input and prepend object context
+    // The chat placeholder will show "Editing [object]..." which guides the user
   };
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
@@ -269,10 +365,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                         <ArrowLeft className="w-4 h-4 mr-2" />
                         Back
                       </Button>
+                      <ServiceStatusBanner />
                       <FloorplanUploader
                         projectId={projectId}
                         onUploadComplete={handleUploadComplete}
-                        onRoomsDetected={handleRoomsDetected}
                       />
                     </div>
                   ) : (
@@ -298,6 +394,8 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               <ChatWrapper
                 projectId={projectId}
                 roomId={selectedRoomId}
+                selectedObjectId={selectedObject?.id || null}
+                onImageGenerated={handleImageGenerated}
                 placeholder="Describe your design goals..."
               />
             </div>
@@ -332,23 +430,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                       <Settings className="w-3.5 h-3.5" />
                     </Button>
                   </div>
-                  {/* Temporary test button to trigger image generation without chat */}
-                  {selectedRoomId && (
-                    <div className="mb-3 space-y-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleTestGenerateImage}
-                        disabled={generating}
-                        className="w-full border-accent-warm/60 text-accent-warm hover:bg-accent-warm/10 text-xs h-7"
-                      >
-                        {generating ? 'Generating…' : 'Test generate'}
-                      </Button>
-                      {generateError && (
-                        <p className="text-xs text-red-400">{generateError}</p>
-                      )}
-                    </div>
-                  )}
                   <RoomGrid
                     rooms={rooms.map((r) => ({ ...r, approved: r.approved === 1 }))}
                     selectedRoomId={selectedRoomId}
@@ -357,13 +438,33 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 </div>
               </div>
 
+              {/* Floor plan viewer card - optional, shown if floor plan exists */}
+              {project.floor_plan_url && (
+                <div className="panel">
+                  <div className="p-4">
+                    <h3 className="font-semibold text-white text-sm mb-4">Floor Plan</h3>
+                    <FloorPlanToggle
+                      floorPlanUrl={project.floor_plan_url}
+                      annotatedFloorPlanUrl={project.annotated_floor_plan_url}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Chat panel card - stacked below room selection */}
               <div className="flex flex-col min-h-0 flex-1">
                 <ChatWrapper
                   projectId={projectId}
                   roomId={selectedRoomId}
+                  selectedObjectId={selectedObject?.id || null}
                   onEditImage={handleEditImage}
-                  placeholder={`Describe your vision for the ${selectedRoom?.name || 'room'}...`}
+                  onLoadingChange={setIsGenerating}
+                  onImageGenerated={handleImageGenerated}
+                  placeholder={
+                    selectedObject
+                      ? `Editing ${selectedObject.label}...`
+                      : `Describe your vision for the ${selectedRoom?.name || 'room'}...`
+                  }
                 />
               </div>
             </div>
@@ -372,21 +473,36 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             <div className="w-full lg:w-[80%] flex flex-col min-w-0">
               <div className="panel flex-1">
                 <div className="p-5">
-                  {generating ? (
+                  {/* CORRECT RULE: As soon as we have an imageUrl, show it. Animation only if generating AND no images yet. */}
+                  {roomImages.length > 0 ? (
+                    <div className="w-full flex items-center justify-center">
+                      {isImageLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                          <div className="text-center text-white/60 text-sm">Loading image...</div>
+                        </div>
+                      )}
+                      <RoomImageViewer
+                        images={roomImages}
+                        currentIndex={currentImageIndex}
+                        onIndexChange={setCurrentImageIndex}
+                        onObjectSelect={handleObjectSelect}
+                        selectedObjectId={selectedObject?.id || null}
+                        onImageLoad={() => setIsImageLoading(false)}
+                      />
+                    </div>
+                  ) : isGenerating ? (
                     <ImageGeneration className="w-full">
-                      <div className="flex items-center justify-center bg-white/5 min-h-[400px] max-h-[600px] rounded-lg">
+                      <div className="flex items-center justify-center bg-white/5 rounded-lg" style={{ aspectRatio: '1/1', maxWidth: '1024px', maxHeight: '1024px', width: '100%' }}>
                         <div className="text-center text-white/60 text-sm">
                           Generating a new design for this room...
                         </div>
                       </div>
                     </ImageGeneration>
                   ) : (
-                    <div className="w-full flex items-center justify-center">
-                      <RoomImageViewer
-                        images={roomImages}
-                        currentIndex={currentImageIndex}
-                        onIndexChange={setCurrentImageIndex}
-                      />
+                    <div className="flex items-center justify-center bg-white/5 rounded-lg" style={{ aspectRatio: '1/1', maxWidth: '1024px', maxHeight: '1024px', width: '100%' }}>
+                      <div className="text-center text-white/60 text-sm">
+                        Describe how you want this room to look.
+                      </div>
                     </div>
                   )}
                 </div>

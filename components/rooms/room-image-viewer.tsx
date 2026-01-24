@@ -1,8 +1,16 @@
 'use client';
 
+import { useRef, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, ZoomIn, Download, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTrigger, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+
+interface DetectedObject {
+  id: string;
+  label: string;
+  category?: 'furniture' | 'surface' | 'lighting' | 'architectural';
+  bbox: [number, number, number, number];
+}
 
 interface RoomImage {
   id: number;
@@ -17,13 +25,51 @@ interface RoomImageViewerProps {
   images: RoomImage[];
   currentIndex: number;
   onIndexChange: (index: number) => void;
+  onObjectSelect?: (object: DetectedObject) => void;
+  selectedObjectId?: string | null;
+  onImageLoad?: () => void;
 }
 
 export function RoomImageViewer({
   images,
   currentIndex,
   onIndexChange,
+  onObjectSelect,
+  selectedObjectId,
+  onImageLoad,
 }: RoomImageViewerProps) {
+  const imageRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [imageBounds, setImageBounds] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  useEffect(() => {
+    const updateImageBounds = () => {
+      if (imageRef.current && containerRef.current) {
+        const imgRect = imageRef.current.getBoundingClientRect();
+        const containerRect = containerRef.current.getBoundingClientRect();
+
+        const offsetX = imgRect.left - containerRect.left;
+        const offsetY = imgRect.top - containerRect.top;
+
+        setImageBounds({
+          x: offsetX,
+          y: offsetY,
+          width: imgRect.width,
+          height: imgRect.height,
+        });
+      }
+    };
+
+    updateImageBounds();
+    window.addEventListener('resize', updateImageBounds);
+    const interval = setInterval(updateImageBounds, 100);
+
+    return () => {
+      window.removeEventListener('resize', updateImageBounds);
+      clearInterval(interval);
+    };
+  }, [currentIndex, images]);
+
   if (images.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[400px] max-h-[600px]">
@@ -39,6 +85,49 @@ export function RoomImageViewer({
   }
 
   const currentImage = images[currentIndex];
+
+  // REQUIREMENT 6: Defensive parsing - handle stringified JSON, parsed, or null
+  let detectedObjects: DetectedObject[] = [];
+  try {
+    const detected_items = currentImage.detected_items;
+    
+    // Handle null/undefined/empty
+    if (!detected_items || detected_items === 'null' || detected_items.trim() === '') {
+      detectedObjects = [];
+    } else {
+      // Parse if string, use directly if already parsed
+      const parsed = typeof detected_items === 'string' 
+        ? JSON.parse(detected_items) 
+        : detected_items;
+      
+      // REQUIREMENT 2: Treat null as not detected, [] as empty result
+      if (parsed === null) {
+        detectedObjects = [];
+      } else if (Array.isArray(parsed) && parsed.length > 0) {
+        // Normalize objects to ensure all required fields exist
+        detectedObjects = parsed.map((obj: any) => ({
+          id: obj.id || `obj-${Math.random().toString(36).substr(2, 9)}`,
+          label: obj.label || 'unknown',
+          category: obj.category || 'furniture',
+          bbox: Array.isArray(obj.bbox) && obj.bbox.length === 4 
+            ? obj.bbox as [number, number, number, number]
+            : [0, 0, 0.1, 0.1],
+        }));
+      } else {
+        detectedObjects = [];
+      }
+    }
+  } catch (error) {
+    // Silent fail - render image without tags
+    detectedObjects = [];
+  }
+
+
+  const handleObjectClick = (object: DetectedObject) => {
+    if (onObjectSelect) {
+      onObjectSelect(object);
+    }
+  };
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
@@ -72,16 +161,114 @@ export function RoomImageViewer({
   return (
     <div className="flex flex-col w-full max-h-[700px]">
       {/* Main image - constrained size with breathing room */}
-      <div className="relative flex items-center justify-center overflow-hidden p-4 pb-4">
+      <div ref={containerRef} className="relative flex items-center justify-center overflow-hidden p-4 pb-4">
         <Dialog>
           <DialogTrigger asChild>
             <button className="relative group cursor-zoom-in w-full flex items-center justify-center">
-              <img
-                src={currentImage.url}
-                alt={currentImage.prompt}
-                className="max-h-[500px] max-w-full object-contain rounded-lg shadow-lg"
-              />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
+              <div className="relative">
+                <img
+                  ref={imageRef}
+                  src={currentImage.url}
+                  alt={currentImage.prompt}
+                  className="max-h-[500px] max-w-full object-contain rounded-lg shadow-lg"
+                  onLoad={() => {
+                    onImageLoad?.();
+                    // Recalculate bounds after image loads
+                    setTimeout(() => {
+                      if (imageRef.current && containerRef.current) {
+                        const imgRect = imageRef.current.getBoundingClientRect();
+                        const containerRect = containerRef.current.getBoundingClientRect();
+                        const offsetX = imgRect.left - containerRect.left;
+                        const offsetY = imgRect.top - containerRect.top;
+                        setImageBounds({
+                          x: offsetX,
+                          y: offsetY,
+                          width: imgRect.width,
+                          height: imgRect.height,
+                        });
+                      }
+                    }, 0);
+                  }}
+                  style={{ aspectRatio: '1/1' }}
+                />
+                {/* REQUIREMENT 4 & 7: Object tags overlay - positioned relative to actual image bounds */}
+                {/* REQUIREMENT 5: Render image immediately, tags when available */}
+                {detectedObjects.length > 0 && imageBounds && (
+                  <div className="absolute pointer-events-none" style={{ zIndex: 10 }}>
+                    {detectedObjects.map((obj) => {
+                      const [x1, y1, x2, y2] = obj.bbox;
+                      
+                      // REQUIREMENT 3: Correct bbox math - [x1, y1, x2, y2] normalized to pixels
+                      const left = imageBounds.x + x1 * imageBounds.width;
+                      const top = imageBounds.y + y1 * imageBounds.height;
+                      const width = (x2 - x1) * imageBounds.width;
+                      const height = (y2 - y1) * imageBounds.height;
+                      
+                      // REQUIREMENT 7: Minimum size for visibility
+                      const minSize = 10;
+                      const finalWidth = Math.max(width, minSize);
+                      const finalHeight = Math.max(height, minSize);
+                      
+                      const isSelected = selectedObjectId === obj.id;
+                      return (
+                        <div
+                          key={obj.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleObjectClick(obj);
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleObjectClick(obj);
+                            }
+                          }}
+                          className={`absolute pointer-events-auto border-2 transition-all rounded cursor-pointer ${
+                            isSelected
+                              ? 'border-accent-warm bg-accent-warm/40 shadow-lg shadow-accent-warm/50'
+                              : 'border-accent-warm/60 hover:border-accent-warm bg-accent-warm/20 hover:bg-accent-warm/30'
+                          }`}
+                          style={{
+                            left: `${left}px`,
+                            top: `${top}px`,
+                            width: `${finalWidth}px`,
+                            height: `${finalHeight}px`,
+                            zIndex: 20,
+                            minWidth: `${minSize}px`,
+                            minHeight: `${minSize}px`,
+                          }}
+                          onMouseEnter={() => {
+                            // Recalculate bounds on hover to catch layout shifts
+                            if (imageRef.current && containerRef.current) {
+                              const imgRect = imageRef.current.getBoundingClientRect();
+                              const containerRect = containerRef.current.getBoundingClientRect();
+                              const offsetX = imgRect.left - containerRect.left;
+                              const offsetY = imgRect.top - containerRect.top;
+                              setImageBounds({
+                                x: offsetX,
+                                y: offsetY,
+                                width: imgRect.width,
+                                height: imgRect.height,
+                              });
+                            }
+                          }}
+                          title={`Click to edit ${obj.label}`}
+                        >
+                          <span className={`absolute -top-6 left-0 px-2 py-0.5 text-white text-xs font-medium rounded whitespace-nowrap pointer-events-none ${
+                            isSelected ? 'bg-accent-warm' : 'bg-accent-warm/80'
+                          }`}>
+                            {obj.label} {isSelected && '✓'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none">
                 <ZoomIn className="w-8 h-8 text-white" />
               </div>
             </button>
@@ -90,10 +277,14 @@ export function RoomImageViewer({
             <DialogTitle className="sr-only">
               Room image: {currentImage.prompt}
             </DialogTitle>
-            <img
-              src={currentImage.url}
-              alt={currentImage.prompt}
-              className="w-full h-auto rounded-lg"
+            <DialogDescription className="sr-only">
+              Full screen view of the room design image
+            </DialogDescription>
+            <FullscreenImageViewer
+              imageUrl={currentImage.url}
+              detectedObjects={detectedObjects}
+              selectedObjectId={selectedObjectId}
+              onObjectClick={handleObjectClick}
             />
           </DialogContent>
         </Dialog>
@@ -150,6 +341,31 @@ export function RoomImageViewer({
         </div>
       </div>
 
+      {/* Object chips */}
+      {detectedObjects.length > 0 && (
+        <div className="border-t border-white/10 bg-surface/30 p-3">
+          <p className="text-xs text-white/50 mb-2">Editable Objects</p>
+          <div className="flex flex-wrap gap-2">
+            {detectedObjects.map((obj) => {
+              const isSelected = selectedObjectId === obj.id;
+              return (
+                <button
+                  key={obj.id}
+                  onClick={() => handleObjectClick(obj)}
+                  className={`px-3 py-1.5 rounded-full border text-white text-xs font-medium transition-colors ${
+                    isSelected
+                      ? 'bg-accent-warm/30 border-accent-warm'
+                      : 'bg-white/10 hover:bg-accent-warm/20 hover:border-accent-warm border-white/20'
+                  }`}
+                >
+                  {obj.label} {isSelected && '✓'}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Thumbnail strip */}
       {images.length > 1 && (
         <div className="border-t border-white/10 bg-white/5 p-2 flex gap-2 overflow-x-auto">
@@ -170,6 +386,151 @@ export function RoomImageViewer({
               />
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Fullscreen image viewer with proper coordinate calculation
+function FullscreenImageViewer({
+  imageUrl,
+  detectedObjects,
+  selectedObjectId,
+  onObjectClick,
+}: {
+  imageUrl: string;
+  detectedObjects: DetectedObject[];
+  selectedObjectId?: string | null;
+  onObjectClick: (object: DetectedObject) => void;
+}) {
+  const imageRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [imageBounds, setImageBounds] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  useEffect(() => {
+    const updateImageBounds = () => {
+      if (imageRef.current && containerRef.current) {
+        const imgRect = imageRef.current.getBoundingClientRect();
+        const containerRect = containerRef.current.getBoundingClientRect();
+
+        const offsetX = imgRect.left - containerRect.left;
+        const offsetY = imgRect.top - containerRect.top;
+
+        setImageBounds({
+          x: offsetX,
+          y: offsetY,
+          width: imgRect.width,
+          height: imgRect.height,
+        });
+      }
+    };
+
+    updateImageBounds();
+    window.addEventListener('resize', updateImageBounds);
+    const interval = setInterval(updateImageBounds, 100);
+
+    return () => {
+      window.removeEventListener('resize', updateImageBounds);
+      clearInterval(interval);
+    };
+  }, [imageUrl]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <img
+        ref={imageRef}
+        src={imageUrl}
+        alt="Room design"
+        className="w-full h-auto rounded-lg"
+        onLoad={() => {
+          if (imageRef.current && containerRef.current) {
+            const imgRect = imageRef.current.getBoundingClientRect();
+            const containerRect = containerRef.current.getBoundingClientRect();
+            const offsetX = imgRect.left - containerRect.left;
+            const offsetY = imgRect.top - containerRect.top;
+            setImageBounds({
+              x: offsetX,
+              y: offsetY,
+              width: imgRect.width,
+              height: imgRect.height,
+            });
+          }
+        }}
+      />
+      {/* REQUIREMENT 4 & 7: Object tags in fullscreen view */}
+      {detectedObjects.length > 0 && imageBounds && (
+        <div className="absolute pointer-events-none" style={{ zIndex: 10 }}>
+          {detectedObjects.map((obj) => {
+            const [x1, y1, x2, y2] = obj.bbox;
+            
+            // REQUIREMENT 3: Correct bbox math
+            const left = imageBounds.x + x1 * imageBounds.width;
+            const top = imageBounds.y + y1 * imageBounds.height;
+            const width = (x2 - x1) * imageBounds.width;
+            const height = (y2 - y1) * imageBounds.height;
+            
+            // REQUIREMENT 7: Minimum size for visibility
+            const minSize = 10;
+            const finalWidth = Math.max(width, minSize);
+            const finalHeight = Math.max(height, minSize);
+            
+            const isSelected = selectedObjectId === obj.id;
+            return (
+              <div
+                key={obj.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onObjectClick(obj);
+                }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onObjectClick(obj);
+                  }
+                }}
+                className={`absolute pointer-events-auto border-2 transition-all rounded cursor-pointer ${
+                  isSelected
+                    ? 'border-accent-warm bg-accent-warm/40 shadow-lg shadow-accent-warm/50'
+                    : 'border-accent-warm/60 hover:border-accent-warm bg-accent-warm/20 hover:bg-accent-warm/30'
+                }`}
+                style={{
+                  left: `${left}px`,
+                  top: `${top}px`,
+                  width: `${finalWidth}px`,
+                  height: `${finalHeight}px`,
+                  zIndex: 20,
+                  minWidth: `${minSize}px`,
+                  minHeight: `${minSize}px`,
+                }}
+                title={`Click to edit ${obj.label}`}
+                onMouseEnter={() => {
+                  // Recalculate bounds on hover
+                  if (imageRef.current && containerRef.current) {
+                    const imgRect = imageRef.current.getBoundingClientRect();
+                    const containerRect = containerRef.current.getBoundingClientRect();
+                    const offsetX = imgRect.left - containerRect.left;
+                    const offsetY = imgRect.top - containerRect.top;
+                    setImageBounds({
+                      x: offsetX,
+                      y: offsetY,
+                      width: imgRect.width,
+                      height: imgRect.height,
+                    });
+                  }
+                }}
+              >
+                <span className={`absolute -top-6 left-0 px-2 py-0.5 text-white text-xs font-medium rounded whitespace-nowrap pointer-events-none ${
+                  isSelected ? 'bg-accent-warm' : 'bg-accent-warm/80'
+                }`}>
+                  {obj.label} {isSelected && '✓'}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

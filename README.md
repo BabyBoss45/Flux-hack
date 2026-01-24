@@ -4,6 +4,8 @@ AI-powered interior design application built with Next.js, SQLite, and the BFL (
 
 ## Getting Started
 
+### Quick Start (Next.js Only)
+
 ```bash
 npm install
 npm run dev
@@ -11,11 +13,63 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser.
 
+### Full Development Setup (with LLM Floor Plan Analysis)
+
+The application includes an AI-powered floor plan analyzer that requires a separate Python service. To use this feature, you need to run both services:
+
+**Terminal 1 - Start LLM Service:**
+```bash
+cd LLM
+uv pip install -r requirements.txt
+uv run uvicorn src.api:app --host 0.0.0.0 --port 8000
+```
+
+**Terminal 2 - Start Next.js:**
+```bash
+npm install
+npm run dev
+```
+
+**Access the application:**
+- Next.js: http://localhost:3000
+- LLM API documentation: http://localhost:8000/docs
+
+**Test the integration:**
+```bash
+npx tsx scripts/test-llm-integration.ts
+```
+
+> **Note:** The LLM service requires valid API keys for Anthropic Claude and RasterScan. Configure these in `LLM/.env` (see Environment Variables section).
+
 ## Environment Variables
 
+### Root `.env` (Next.js)
+
 ```env
+# Database
+DATABASE_URL=sqlite.db
+
+# BFL Flux 2 API
 BFL_API_KEY=your_bfl_api_key
+
+# Anthropic Claude API
+ANTHROPIC_API_KEY=your_anthropic_api_key
+RASTERSCAN_API_KEY=your_rasterscan_api_key
+RASTERSCAN_URL=https://backend.rasterscan.com/raster-to-vector-base64
+
+# LLM Service
+LLM_SERVICE_URL=http://localhost:8000
+
+# Application URL
 NEXT_PUBLIC_URL=http://localhost:3000
+```
+
+### `LLM/.env` (Python LLM Service)
+
+```env
+ANTHROPIC_API_KEY=your_anthropic_api_key
+RASTERSCAN_API_KEY=your_rasterscan_api_key
+RASTERSCAN_URL=https://backend.rasterscan.com/raster-to-vector-base64
 ```
 
 ---
@@ -531,19 +585,63 @@ Check the status of an async image generation job.
 
 #### POST `/api/floor-plan/upload`
 
-Upload a floor plan file (PDF or image).
+Upload and analyze a floor plan with AI. This endpoint uses Server-Sent Events (SSE) to stream progress updates.
 
 **Request:** `multipart/form-data`
-- `file`: PDF, PNG, or JPEG file (max 10MB)
+- `file`: PDF, PNG, or JPEG file (max 20MB)
+- `projectId`: Project ID (integer)
+
+**Response:** Server-Sent Events (SSE) stream
+
+**Progress Event:**
+```
+event: progress
+data: {"status":"analyzing","message":"Analyzing floor plan with AI..."}
+```
+
+**Complete Event:**
+```
+event: complete
+data: {
+  "floor_plan_url": "/uploads/floor-plans/uuid.png",
+  "annotated_floor_plan_url": "/uploads/floor-plans/uuid-annotated.png",
+  "rooms": [
+    {
+      "id": 1,
+      "project_id": 1,
+      "name": "Living Room",
+      "type": "Living Room",
+      "geometry": "{\"length_ft\":20,\"width_ft\":15,\"area_sqft\":300}",
+      "doors": "[{\"location\":\"north\",\"type\":\"standard\",\"width_ft\":3}]",
+      "windows": "[{\"location\":\"south\",\"width_ft\":4,\"height_ft\":5}]",
+      "fixtures": "[]",
+      "adjacent_rooms": "[\"Kitchen\"]"
+    }
+  ],
+  "room_count": 1,
+  "total_area_sqft": 300
+}
+```
+
+**Error Event:**
+```
+event: error
+data: {"error":"LLM service unavailable"}
+```
+
+---
+
+#### GET `/api/floor-plan/health`
+
+Check LLM service health status.
 
 **Response:**
 ```json
 {
-  "url": "/uploads/floor-plans/1705312200000-floorplan.pdf",
-  "filename": "1705312200000-floorplan.pdf",
-  "originalName": "my-home-floorplan.pdf",
-  "size": 2048576,
-  "type": "application/pdf"
+  "status": "healthy",
+  "llm_service": {
+    "reachable": true
+  }
 }
 ```
 
@@ -551,44 +649,13 @@ Upload a floor plan file (PDF or image).
 
 #### POST `/api/floor-plan/parse`
 
-Parse a floor plan and detect rooms.
-
-**Request:**
-```json
-{
-  "projectId": 1,
-  "floorPlanUrl": "/uploads/floor-plans/1705312200000-floorplan.pdf"
-}
-```
+**⚠️ DEPRECATED:** This endpoint is deprecated. Use `POST /api/floor-plan/upload` instead.
 
 **Response:**
 ```json
 {
-  "rooms": [
-    {
-      "id": 1,
-      "project_id": 1,
-      "name": "Living Room",
-      "type": "Living Room",
-      "geometry": "{\"width\":20,\"height\":15}",
-      "doors": "[\"Entry\",\"To Kitchen\"]",
-      "windows": "[\"South Window\",\"West Window\"]",
-      "fixtures": "[]",
-      "adjacent_rooms": "[\"Kitchen\",\"Entry\"]"
-    },
-    {
-      "id": 2,
-      "project_id": 1,
-      "name": "Kitchen",
-      "type": "Kitchen",
-      "geometry": "{\"width\":12,\"height\":10}",
-      "doors": "[\"To Living Room\"]",
-      "windows": "[\"East Window\"]",
-      "fixtures": "[\"Island\",\"Sink\"]",
-      "adjacent_rooms": "[\"Living Room\"]"
-    }
-  ],
-  "message": "Detected 2 rooms in the floor plan"
+  "error": "ENDPOINT_DEPRECATED",
+  "message": "This endpoint is deprecated. Please use POST /api/floor-plan/upload instead."
 }
 ```
 
