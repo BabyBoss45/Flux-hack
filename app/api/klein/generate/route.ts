@@ -81,7 +81,10 @@ export async function POST(request: Request) {
 
     const finalImageUrl = imageUrls[imageUrls.length - 1];
 
-    const detectedObjects = await detectObjects(finalImageUrl);
+    // Always enable LLM enhancement for all generated images
+    const detectedObjects = await detectObjects(finalImageUrl, {
+      enhanceWithLLM: true,
+    });
 
     // Only save detected objects if detection succeeded
     // null means detection failed → save 'null' string (sentinel)
