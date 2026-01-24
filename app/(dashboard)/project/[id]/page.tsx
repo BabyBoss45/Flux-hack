@@ -379,6 +379,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               <ChatWrapper
                 projectId={projectId}
                 roomId={selectedRoomId}
+                selectedObjectId={selectedObject?.id || null}
                 onImageGenerated={handleImageGenerated}
                 placeholder="Describe your design goals..."
               />
@@ -427,6 +428,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 <ChatWrapper
                   projectId={projectId}
                   roomId={selectedRoomId}
+                  selectedObjectId={selectedObject?.id || null}
                   onEditImage={handleEditImage}
                   onLoadingChange={setIsGenerating}
                   onImageGenerated={handleImageGenerated}

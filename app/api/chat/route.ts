@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     console.log('=== Chat API Request ===');
     console.log('Raw body keys:', Object.keys(body));
 
-    const { messages, projectId, roomId } = body;
+    const { messages, projectId, roomId, selectedObjectId } = body;
 
     console.log('Extracted - Project ID:', projectId);
     console.log('Extracted - Room ID:', roomId);
@@ -125,7 +125,7 @@ export async function POST(request: Request) {
                 }
               }
 
-              parsedInstruction = await parseUserIntent(userContent, availableObjects, String(roomId));
+              parsedInstruction = await parseUserIntent(userContent, availableObjects, String(roomId), selectedObjectId);
               console.log('Parsed instruction:', JSON.stringify(parsedInstruction, null, 2));
 
               const tasks = await buildKleinTasks(parsedInstruction, previousImage);
@@ -135,7 +135,19 @@ export async function POST(request: Request) {
 
               if (imageUrls.length > 0) {
                 const finalImageUrl = imageUrls[imageUrls.length - 1];
-                const detectedObjects = await detectObjects(finalImageUrl);
+                
+                // For edits: reuse existing detected objects (sequential chaining)
+                // For new generation: detect objects fresh
+                let detectedObjects: DetectedObject[] | null = null;
+                
+                if (parsedInstruction.intent === 'edit_objects' && previousImage && previousImage.objects.length > 0) {
+                  // Keep same object IDs for edits (no re-detection needed)
+                  // Objects maintain their identity through edits
+                  detectedObjects = previousImage.objects;
+                } else {
+                  // New generation: detect objects
+                  detectedObjects = await detectObjects(finalImageUrl);
+                }
 
                 // Only save detected objects if detection succeeded
                 // null means detection failed → save 'null' string (sentinel)

@@ -53,7 +53,8 @@ User text: {userText}`;
 export async function parseUserIntent(
   userText: string,
   availableObjects: DetectedObject[],
-  roomId: string
+  roomId: string,
+  selectedObjectId?: string | null
 ): Promise<ParsedInstruction> {
   if (!userText.trim()) {
     throw new Error('User text cannot be empty');
@@ -64,10 +65,19 @@ export async function parseUserIntent(
   }
 
   const availableObjectsList = availableObjects.map((obj) => obj.label).join(', ');
+  
+  // If a specific object is selected, prioritize it in the context
+  let contextText = userText;
+  if (selectedObjectId && availableObjects.length > 0) {
+    const selectedObj = availableObjects.find(obj => obj.id === selectedObjectId);
+    if (selectedObj) {
+      contextText = `Editing ${selectedObj.label}: ${userText}`;
+    }
+  }
 
   const prompt = PARSER_PROMPT
     .replace('{availableObjects}', availableObjectsList || 'none')
-    .replace('{userText}', userText);
+    .replace('{userText}', contextText);
 
   try {
     const { object } = await generateObject({
@@ -79,6 +89,23 @@ export async function parseUserIntent(
     const parsed = object as ParsedInstruction;
     parsed.roomId = roomId;
 
+    // If object is selected, force edit_objects intent
+    if (selectedObjectId && availableObjects.length > 0) {
+      const selectedObj = availableObjects.find(obj => obj.id === selectedObjectId);
+      if (selectedObj) {
+        parsed.intent = 'edit_objects';
+        // Extract attributes from user text
+        parsed.edits = [{
+          target: selectedObj.label,
+          action: 'modify',
+          attributes: {
+            description: userText,
+            request: userText,
+          },
+        }];
+      }
+    }
+
     if (parsed.intent === 'edit_objects' && parsed.edits) {
       const validEdits = parsed.edits.filter((edit) =>
         availableObjects.some((obj) => obj.label.toLowerCase() === edit.target.toLowerCase())
@@ -86,8 +113,22 @@ export async function parseUserIntent(
       parsed.edits = validEdits.length > 0 ? validEdits : undefined;
     }
 
+    // Only fallback to generate_room if no objects available AND no selected object
     if (parsed.intent === 'edit_objects' && (!parsed.edits || parsed.edits.length === 0)) {
-      parsed.intent = 'generate_room';
+      if (availableObjects.length === 0) {
+        parsed.intent = 'generate_room';
+      } else {
+        // If objects exist but edit failed, default to first object
+        parsed.intent = 'edit_objects';
+        parsed.edits = [{
+          target: availableObjects[0].label,
+          action: 'modify',
+          attributes: {
+            description: userText,
+            request: userText,
+          },
+        }];
+      }
     }
 
     return parsed;

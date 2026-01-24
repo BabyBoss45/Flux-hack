@@ -8,6 +8,7 @@ import { useEffect, useRef } from 'react';
 interface UseChatOptions {
   projectId: number;
   roomId?: number | null;
+  selectedObjectId?: string | null;
   initialMessages?: UIMessage[];
   onError?: (error: Error) => void;
   onImageGenerated?: (imageUrl: string, detectedObjects: any[]) => void;
@@ -47,15 +48,14 @@ class ImageAwareChatTransport extends DefaultChatTransport {
   }
 }
 
-export function useChat({ projectId, roomId, initialMessages, onError, onImageGenerated }: UseChatOptions) {
-  console.log('useChat initialized with:', { projectId, roomId, initialMessagesCount: initialMessages?.length });
-
+export function useChat({ projectId, roomId, selectedObjectId, initialMessages, onError, onImageGenerated }: UseChatOptions) {
   const chat = useAIChat({
     transport: new ImageAwareChatTransport({
       api: '/api/chat',
       body: {
         projectId,
         roomId,
+        selectedObjectId,
       },
       onImageGenerated,
     }),

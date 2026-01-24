@@ -8,6 +8,7 @@ import { type UIMessage } from 'ai';
 interface ChatWrapperProps {
   projectId: number;
   roomId: number | null;
+  selectedObjectId?: string | null;
   placeholder?: string;
   onEditImage?: (imageId: number) => void;
   onLoadingChange?: (isLoading: boolean) => void;
@@ -17,6 +18,7 @@ interface ChatWrapperProps {
 function ChatInstance({
   projectId,
   roomId,
+  selectedObjectId,
   initialMessages,
   placeholder,
   onEditImage,
@@ -25,6 +27,7 @@ function ChatInstance({
 }: {
   projectId: number;
   roomId: number | null;
+  selectedObjectId?: string | null;
   initialMessages: UIMessage[];
   placeholder?: string;
   onEditImage?: (imageId: number) => void;
@@ -34,6 +37,7 @@ function ChatInstance({
   const { messages, isLoading: chatLoading, sendMessage, stop } = useChat({
     projectId,
     roomId,
+    selectedObjectId,
     initialMessages,
     onImageGenerated,
   });
@@ -63,7 +67,7 @@ function ChatInstance({
   );
 }
 
-export function ChatWrapper({ projectId, roomId, placeholder, onEditImage, onLoadingChange, onImageGenerated }: ChatWrapperProps) {
+export function ChatWrapper({ projectId, roomId, selectedObjectId, placeholder, onEditImage, onLoadingChange, onImageGenerated }: ChatWrapperProps) {
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [chatKey, setChatKey] = useState(0);
@@ -110,6 +114,7 @@ export function ChatWrapper({ projectId, roomId, placeholder, onEditImage, onLoa
       key={chatKey}
       projectId={projectId}
       roomId={roomId}
+      selectedObjectId={selectedObjectId}
       initialMessages={initialMessages}
       placeholder={placeholder}
       onEditImage={onEditImage}

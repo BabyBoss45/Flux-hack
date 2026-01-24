@@ -211,13 +211,22 @@ export function RoomImageViewer({
                       
                       const isSelected = selectedObjectId === obj.id;
                       return (
-                        <button
+                        <div
                           key={obj.id}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleObjectClick(obj);
                           }}
-                          className={`absolute pointer-events-auto border-2 transition-all rounded ${
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleObjectClick(obj);
+                            }
+                          }}
+                          className={`absolute pointer-events-auto border-2 transition-all rounded cursor-pointer ${
                             isSelected
                               ? 'border-accent-warm bg-accent-warm/40 shadow-lg shadow-accent-warm/50'
                               : 'border-accent-warm/60 hover:border-accent-warm bg-accent-warm/20 hover:bg-accent-warm/30'
@@ -253,7 +262,7 @@ export function RoomImageViewer({
                           }`}>
                             {obj.label} {isSelected && '✓'}
                           </span>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -468,13 +477,22 @@ function FullscreenImageViewer({
             
             const isSelected = selectedObjectId === obj.id;
             return (
-              <button
+              <div
                 key={obj.id}
                 onClick={(e) => {
                   e.stopPropagation();
                   onObjectClick(obj);
                 }}
-                className={`absolute pointer-events-auto border-2 transition-all rounded ${
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onObjectClick(obj);
+                  }
+                }}
+                className={`absolute pointer-events-auto border-2 transition-all rounded cursor-pointer ${
                   isSelected
                     ? 'border-accent-warm bg-accent-warm/40 shadow-lg shadow-accent-warm/50'
                     : 'border-accent-warm/60 hover:border-accent-warm bg-accent-warm/20 hover:bg-accent-warm/30'
@@ -510,7 +528,7 @@ function FullscreenImageViewer({
                 }`}>
                   {obj.label} {isSelected && '✓'}
                 </span>
-              </button>
+              </div>
             );
           })}
         </div>
