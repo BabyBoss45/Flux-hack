@@ -1,7 +1,7 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { streamText, convertToModelMessages, stepCountIs } from 'ai';
 import { getSession } from '@/lib/auth/mock-auth';
-import { getProjectById, getRoomById, createMessage, getRoomImagesByRoomId, createRoomImage, updateRoomImageItems } from '@/lib/db/queries';
+import { getProjectById, getRoomById, createMessage, createRoomMessage, getRoomImagesByRoomId, createRoomImage, updateRoomImageItems } from '@/lib/db/queries';
 import { createAiTools } from '@/lib/ai/tools';
 import { getSystemPrompt } from '@/lib/ai/prompts';
 import { parseUserIntent } from '@/lib/klein/parser';
@@ -76,7 +76,11 @@ export async function POST(request: Request) {
 
         if (userContent.trim()) {
           console.log('Saving new user message:', userContent.substring(0, 100));
-          createMessage(projectId, 'user', userContent, roomId);
+          if (roomId) {
+            createRoomMessage(projectId, roomId, 'user', userContent);
+          } else {
+            createMessage(projectId, 'user', userContent, undefined);
+          }
 
           // Trigger klein image generation if roomId exists
           // Safety guard: do not generate images on empty input
@@ -93,9 +97,9 @@ export async function POST(request: Request) {
                 // 'null' = detection failed → don't use, try detection again
                 // '[]' = detection succeeded but found no objects → valid, use empty array
                 // '[{...}]' = detection succeeded with objects → use these
-                if (latestImage.detected_items && 
+                if (latestImage.detected_items &&
                     latestImage.detected_items !== 'null' &&
-                    latestImage.detected_items !== '[]' && 
+                    latestImage.detected_items !== '[]' &&
                     latestImage.detected_items.trim() !== '') {
                   try {
                     const parsed = JSON.parse(latestImage.detected_items);
@@ -135,11 +139,11 @@ export async function POST(request: Request) {
 
               if (imageUrls.length > 0) {
                 const finalImageUrl = imageUrls[imageUrls.length - 1];
-                
+
                 // For edits: reuse existing detected objects (sequential chaining)
                 // For new generation: detect objects fresh
                 let detectedObjects: DetectedObject[] | null = null;
-                
+
                 if (parsedInstruction.intent === 'edit_objects' && previousImage && previousImage.objects.length > 0) {
                   // Keep same object IDs for edits (no re-detection needed)
                   // Objects maintain their identity through edits
@@ -153,8 +157,8 @@ export async function POST(request: Request) {
                 // null means detection failed → save 'null' string (sentinel)
                 // [] means detection succeeded but found no objects → save '[]'
                 // [{...}] means detection succeeded with objects → save '[{...}]'
-                const detectedItemsJson = detectedObjects !== null 
-                  ? JSON.stringify(detectedObjects) 
+                const detectedItemsJson = detectedObjects !== null
+                  ? JSON.stringify(detectedObjects)
                   : null;
 
                 const newImage = createRoomImage(
@@ -259,13 +263,23 @@ export async function POST(request: Request) {
         // Only save if there's actual content
         if (text?.trim() || toolInvocations) {
           console.log('Saving assistant message to DB');
-          createMessage(
-            projectId,
-            'assistant',
-            text || '',
-            roomId,
-            toolInvocations ? JSON.stringify(toolInvocations) : undefined
-          );
+          if (roomId) {
+            createRoomMessage(
+              projectId,
+              roomId,
+              'assistant',
+              text || '',
+              toolInvocations ? JSON.stringify(toolInvocations) : undefined
+            );
+          } else {
+            createMessage(
+              projectId,
+              'assistant',
+              text || '',
+              undefined,
+              toolInvocations ? JSON.stringify(toolInvocations) : undefined
+            );
+          }
         }
       } catch (error) {
         console.error('Error saving message:', error);
