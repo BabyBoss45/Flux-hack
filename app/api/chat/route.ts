@@ -1,9 +1,14 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { streamText, convertToModelMessages, stepCountIs } from 'ai';
 import { getSession } from '@/lib/auth/mock-auth';
-import { getProjectById, getRoomById, createMessage } from '@/lib/db/queries';
+import { getProjectById, getRoomById, createMessage, getRoomImagesByRoomId, createRoomImage, updateRoomImageItems } from '@/lib/db/queries';
 import { createAiTools } from '@/lib/ai/tools';
 import { getSystemPrompt } from '@/lib/ai/prompts';
+import { parseUserIntent } from '@/lib/klein/parser';
+import { buildKleinTasks } from '@/lib/klein/task-builder';
+import { executeKleinTasks } from '@/lib/klein/runware-client';
+import { detectObjects } from '@/lib/klein/object-detection';
+import type { RoomImage, DetectedObject } from '@/lib/klein/types';
 
 export const maxDuration = 120;
 
@@ -45,30 +50,119 @@ export async function POST(request: Request) {
 
     // Save user message to database ONLY if it's new (no numeric DB ID)
     const lastMessage = messages[messages.length - 1];
+    let userContent = '';
+    let parsedInstruction = null;
+    // Store generated image data in request scope (not globalThis for serverless compatibility)
+    let generatedImageData: { imageUrl: string; detectedObjects: any[] } | null = null;
+
     if (lastMessage?.role === 'user') {
       const hasDbId = lastMessage.id && !isNaN(Number(lastMessage.id));
       if (!hasDbId) {
         // Extract content from either content field or parts array
-        let content = '';
-
         if (typeof lastMessage.content === 'string') {
-          content = lastMessage.content;
+          userContent = lastMessage.content;
         } else if (Array.isArray(lastMessage.content)) {
-          content = lastMessage.content
+          userContent = lastMessage.content
             .filter((p: any) => p.type === 'text')
             .map((p: any) => p.text)
             .join('');
         } else if (Array.isArray(lastMessage.parts)) {
           // Handle parts array format from frontend
-          content = lastMessage.parts
+          userContent = lastMessage.parts
             .filter((p: any) => p.type === 'text')
             .map((p: any) => p.text)
             .join('');
         }
 
-        if (content.trim()) {
-          console.log('Saving new user message:', content.substring(0, 100));
-          createMessage(projectId, 'user', content, roomId);
+        if (userContent.trim()) {
+          console.log('Saving new user message:', userContent.substring(0, 100));
+          createMessage(projectId, 'user', userContent, roomId);
+
+          // Trigger klein image generation if roomId exists
+          // Safety guard: do not generate images on empty input
+          if (roomId && userContent.trim().length > 0) {
+            try {
+              const existingImages = getRoomImagesByRoomId(Number(roomId));
+              const latestImage = existingImages[0] || null;
+
+              let availableObjects: DetectedObject[] = [];
+              let previousImage: RoomImage | null = null;
+
+              if (latestImage) {
+                // Parse existing detected_items
+                // 'null' = detection failed → don't use, try detection again
+                // '[]' = detection succeeded but found no objects → valid, use empty array
+                // '[{...}]' = detection succeeded with objects → use these
+                if (latestImage.detected_items && 
+                    latestImage.detected_items !== 'null' &&
+                    latestImage.detected_items !== '[]' && 
+                    latestImage.detected_items.trim() !== '') {
+                  try {
+                    const parsed = JSON.parse(latestImage.detected_items);
+                    availableObjects = Array.isArray(parsed) && parsed.length > 0 ? parsed : [];
+                  } catch {
+                    availableObjects = [];
+                  }
+                }
+
+                // Only run detection if we don't have objects yet and detection hasn't failed
+                if (availableObjects.length === 0 && latestImage.detected_items !== 'null') {
+                  const detected = await detectObjects(latestImage.url);
+                  if (detected !== null) {
+                    availableObjects = detected;
+                    updateRoomImageItems(latestImage.id, JSON.stringify(availableObjects));
+                  } else {
+                    // Detection failed, mark it so we don't retry immediately
+                    updateRoomImageItems(latestImage.id, 'null');
+                  }
+                }
+
+                if (availableObjects.length > 0) {
+                  previousImage = {
+                    imageUrl: latestImage.url,
+                    objects: availableObjects,
+                  };
+                }
+              }
+
+              parsedInstruction = await parseUserIntent(userContent, availableObjects, String(roomId));
+              console.log('Parsed instruction:', JSON.stringify(parsedInstruction, null, 2));
+
+              const tasks = await buildKleinTasks(parsedInstruction, previousImage);
+              console.log('Built klein tasks:', tasks.length);
+
+              const imageUrls = await executeKleinTasks(tasks);
+
+              if (imageUrls.length > 0) {
+                const finalImageUrl = imageUrls[imageUrls.length - 1];
+                const detectedObjects = await detectObjects(finalImageUrl);
+
+                // Only save detected objects if detection succeeded
+                // null means detection failed → save 'null' string (sentinel)
+                // [] means detection succeeded but found no objects → save '[]'
+                // [{...}] means detection succeeded with objects → save '[{...}]'
+                const detectedItemsJson = detectedObjects !== null 
+                  ? JSON.stringify(detectedObjects) 
+                  : null;
+
+                const newImage = createRoomImage(
+                  Number(roomId),
+                  finalImageUrl,
+                  userContent,
+                  'perspective',
+                  detectedItemsJson
+                );
+
+                // Store image data in request scope for response headers
+                generatedImageData = {
+                  imageUrl: finalImageUrl,
+                  detectedObjects: detectedObjects || [],
+                };
+              }
+            } catch (error) {
+              console.error('Klein generation error in chat:', error);
+            }
+          }
         } else {
           console.log('Skipping empty user message');
         }
@@ -106,6 +200,17 @@ export async function POST(request: Request) {
 
     // Return UI message stream response (supports tool calls and text)
     const response = result.toUIMessageStreamResponse();
+
+    // Add parsed instruction to response headers if available
+    if (parsedInstruction) {
+      response.headers.set('X-Parsed-Instruction', JSON.stringify(parsedInstruction));
+    }
+
+    // Add image data to response headers if image was generated
+    if (generatedImageData) {
+      response.headers.set('X-Generated-Image-Url', generatedImageData.imageUrl);
+      response.headers.set('X-Generated-Image-Objects', JSON.stringify(generatedImageData.detectedObjects));
+    }
 
     // Save to DB in the background (don't await to not block streaming)
     (async () => {

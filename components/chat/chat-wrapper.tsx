@@ -10,6 +10,8 @@ interface ChatWrapperProps {
   roomId: number | null;
   placeholder?: string;
   onEditImage?: (imageId: number) => void;
+  onLoadingChange?: (isLoading: boolean) => void;
+  onImageGenerated?: (imageUrl: string, detectedObjects: any[]) => void;
 }
 
 function ChatInstance({
@@ -18,18 +20,28 @@ function ChatInstance({
   initialMessages,
   placeholder,
   onEditImage,
+  onLoadingChange,
+  onImageGenerated,
 }: {
   projectId: number;
   roomId: number | null;
   initialMessages: UIMessage[];
   placeholder?: string;
   onEditImage?: (imageId: number) => void;
+  onLoadingChange?: (isLoading: boolean) => void;
+  onImageGenerated?: (imageUrl: string, detectedObjects: any[]) => void;
 }) {
   const { messages, isLoading: chatLoading, sendMessage, stop } = useChat({
     projectId,
     roomId,
     initialMessages,
+    onImageGenerated,
   });
+
+  // Notify parent of loading state changes
+  useEffect(() => {
+    onLoadingChange?.(chatLoading);
+  }, [chatLoading, onLoadingChange]);
 
   // Cancel any in-progress stream when component unmounts
   useEffect(() => {
@@ -51,7 +63,7 @@ function ChatInstance({
   );
 }
 
-export function ChatWrapper({ projectId, roomId, placeholder, onEditImage }: ChatWrapperProps) {
+export function ChatWrapper({ projectId, roomId, placeholder, onEditImage, onLoadingChange, onImageGenerated }: ChatWrapperProps) {
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [chatKey, setChatKey] = useState(0);
@@ -101,6 +113,8 @@ export function ChatWrapper({ projectId, roomId, placeholder, onEditImage }: Cha
       initialMessages={initialMessages}
       placeholder={placeholder}
       onEditImage={onEditImage}
+      onLoadingChange={onLoadingChange}
+      onImageGenerated={onImageGenerated}
     />
   );
 }

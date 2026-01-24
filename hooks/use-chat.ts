@@ -3,24 +3,61 @@
 import { useChat as useAIChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import type { UIMessage } from 'ai';
+import { useEffect, useRef } from 'react';
 
 interface UseChatOptions {
   projectId: number;
   roomId?: number | null;
   initialMessages?: UIMessage[];
   onError?: (error: Error) => void;
+  onImageGenerated?: (imageUrl: string, detectedObjects: any[]) => void;
 }
 
-export function useChat({ projectId, roomId, initialMessages, onError }: UseChatOptions) {
+// Custom transport that intercepts response headers
+class ImageAwareChatTransport extends DefaultChatTransport {
+  private onImageGenerated?: (imageUrl: string, detectedObjects: any[]) => void;
+
+  constructor(options: any) {
+    const originalFetch = options.fetch || fetch;
+    const onImageGenerated = options.onImageGenerated;
+    
+    super({
+      ...options,
+      fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+        // Use custom fetch to intercept headers
+        const response = await originalFetch(input, init);
+        
+        // Read headers immediately (before stream is consumed)
+        const imageUrl = response.headers.get('X-Generated-Image-Url');
+        const detectedObjectsStr = response.headers.get('X-Generated-Image-Objects');
+        
+        if (imageUrl && onImageGenerated) {
+          try {
+            const detectedObjects = detectedObjectsStr ? JSON.parse(detectedObjectsStr) : [];
+            onImageGenerated(imageUrl, detectedObjects);
+          } catch (error) {
+            onImageGenerated(imageUrl, []);
+          }
+        }
+        
+        return response;
+      },
+    });
+    this.onImageGenerated = onImageGenerated;
+  }
+}
+
+export function useChat({ projectId, roomId, initialMessages, onError, onImageGenerated }: UseChatOptions) {
   console.log('useChat initialized with:', { projectId, roomId, initialMessagesCount: initialMessages?.length });
 
   const chat = useAIChat({
-    transport: new DefaultChatTransport({
+    transport: new ImageAwareChatTransport({
       api: '/api/chat',
       body: {
         projectId,
         roomId,
       },
+      onImageGenerated,
     }),
     initialMessages: initialMessages || [],
     onError: (error: Error) => {
