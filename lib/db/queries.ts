@@ -13,6 +13,7 @@ export interface Project {
   user_id: number;
   name: string;
   floor_plan_url: string | null;
+  annotated_floor_plan_url: string | null;
   global_preferences: string;
   created_at: string;
   updated_at: string;
@@ -100,7 +101,7 @@ export function createProject(
 
 export function updateProject(
   id: number,
-  data: Partial<{ name: string; floor_plan_url: string; global_preferences: string }>
+  data: Partial<{ name: string; floor_plan_url: string; annotated_floor_plan_url: string; global_preferences: string }>
 ): void {
   const updates: string[] = [];
   const params: unknown[] = [];
@@ -112,6 +113,10 @@ export function updateProject(
   if (data.floor_plan_url !== undefined) {
     updates.push('floor_plan_url = ?');
     params.push(data.floor_plan_url);
+  }
+  if (data.annotated_floor_plan_url !== undefined) {
+    updates.push('annotated_floor_plan_url = ?');
+    params.push(data.annotated_floor_plan_url);
   }
   if (data.global_preferences !== undefined) {
     updates.push('global_preferences = ?');

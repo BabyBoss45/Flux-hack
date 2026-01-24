@@ -80,4 +80,11 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_messages_room_id ON messages(room_id);
     CREATE INDEX IF NOT EXISTS idx_shared_designs_project_id ON shared_designs(project_id);
   `);
+
+  // Add migration for annotated floor plan URL
+  const columns = db.pragma("table_info('projects')") as Array<{ name: string }>;
+  const hasAnnotatedColumn = columns.some((col) => col.name === 'annotated_floor_plan_url');
+  if (!hasAnnotatedColumn) {
+    db.exec(`ALTER TABLE projects ADD COLUMN annotated_floor_plan_url TEXT;`);
+  }
 }

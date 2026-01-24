@@ -1,6 +1,19 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/mock-auth';
-import { saveFile } from '@/lib/storage/blob';
+import { saveFile, saveBase64Image } from '@/lib/storage/blob';
+import { updateProject, getProjectById, createRoom } from '@/lib/db/queries';
+import * as llmClient from '@/lib/llm/client';
+
+export const maxDuration = 120; // 2 minute timeout
+
+interface SSEEvent {
+  event: string;
+  data: any;
+}
+
+function formatSSE(event: SSEEvent): string {
+  return `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`;
+}
 
 export async function POST(request: Request) {
   try {
@@ -11,9 +24,25 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
+    const projectIdStr = formData.get('projectId') as string | null;
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    }
+
+    if (!projectIdStr) {
+      return NextResponse.json({ error: 'No project ID provided' }, { status: 400 });
+    }
+
+    const projectId = parseInt(projectIdStr, 10);
+    if (isNaN(projectId)) {
+      return NextResponse.json({ error: 'Invalid project ID' }, { status: 400 });
+    }
+
+    // Verify project ownership
+    const project = getProjectById(projectId);
+    if (!project || project.user_id !== session.user.id) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
     // Validate file type
@@ -25,24 +54,133 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validate file size (max 10MB)
-    const maxSize = 10 * 1024 * 1024;
+    // Validate file size (max 20MB)
+    const maxSize = 20 * 1024 * 1024;
     if (file.size > maxSize) {
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 10MB.' },
+        { error: 'File too large. Maximum size is 20MB.' },
         { status: 400 }
       );
     }
 
-    // Save file
-    const { url, filename } = await saveFile(file, 'floor-plans');
+    // Create SSE stream
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // Send analyzing event
+          controller.enqueue(
+            encoder.encode(
+              formatSSE({
+                event: 'progress',
+                data: { status: 'analyzing', message: 'Analyzing floor plan with AI...' },
+              })
+            )
+          );
 
-    return NextResponse.json({
-      url,
-      filename,
-      originalName: file.name,
-      size: file.size,
-      type: file.type,
+          // Convert file to buffer for LLM service
+          const bytes = await file.arrayBuffer();
+          const buffer = Buffer.from(bytes);
+
+          // Call LLM service
+          let analysisResult: llmClient.LLMAnalysisResult;
+          try {
+            analysisResult = await llmClient.analyzeFloorPlan(buffer, file.name);
+          } catch (error) {
+            controller.enqueue(
+              encoder.encode(
+                formatSSE({
+                  event: 'error',
+                  data: {
+                    error: error instanceof Error ? error.message : 'Analysis failed',
+                  },
+                })
+              )
+            );
+            controller.close();
+            return;
+          }
+
+          // Send uploading event
+          controller.enqueue(
+            encoder.encode(
+              formatSSE({
+                event: 'progress',
+                data: { status: 'uploading', message: 'Saving images...' },
+              })
+            )
+          );
+
+          // Save original floor plan
+          const { url: floor_plan_url } = await saveFile(file, 'floor-plans');
+
+          // Save annotated image
+          const { url: annotated_floor_plan_url } = await saveBase64Image(
+            analysisResult.annotated_image_base64,
+            'floor-plans'
+          );
+
+          // Update project with both URLs
+          updateProject(projectId, {
+            floor_plan_url,
+            annotated_floor_plan_url,
+          });
+
+          // Create room records
+          const rooms = [];
+          for (const llmRoom of analysisResult.rooms) {
+            const room = createRoom(projectId, llmRoom.name, llmRoom.type, {
+              geometry: JSON.stringify(llmRoom.dimensions),
+              doors: JSON.stringify(llmRoom.doors),
+              windows: JSON.stringify(llmRoom.windows),
+              fixtures: JSON.stringify(llmRoom.fixtures),
+              adjacent_rooms: JSON.stringify(llmRoom.adjacent_rooms),
+            });
+            if (room) {
+              rooms.push(room);
+            }
+          }
+
+          // Send complete event
+          controller.enqueue(
+            encoder.encode(
+              formatSSE({
+                event: 'complete',
+                data: {
+                  floor_plan_url,
+                  annotated_floor_plan_url,
+                  rooms,
+                  room_count: analysisResult.room_count,
+                  total_area_sqft: analysisResult.total_area_sqft,
+                },
+              })
+            )
+          );
+
+          controller.close();
+        } catch (error) {
+          console.error('Upload error:', error);
+          controller.enqueue(
+            encoder.encode(
+              formatSSE({
+                event: 'error',
+                data: {
+                  error: error instanceof Error ? error.message : 'Upload failed',
+                },
+              })
+            )
+          );
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
     });
   } catch (error) {
     console.error('Upload error:', error);
