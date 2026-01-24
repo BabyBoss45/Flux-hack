@@ -231,10 +231,36 @@ export function deleteRoom(id: number): void {
 
 // Room image queries
 export function getRoomImagesByRoomId(roomId: number): RoomImage[] {
-  return queryAll<RoomImage>(
-    'SELECT * FROM room_images WHERE room_id = ? ORDER BY created_at DESC',
+  // Explicitly select all columns to ensure detected_items is included
+  const images = queryAll<RoomImage>(
+    'SELECT id, room_id, url, prompt, view_type, detected_items, created_at FROM room_images WHERE room_id = ? ORDER BY created_at DESC',
     [roomId]
   );
+  
+  // Normalize detected_items:
+  // null/undefined = use default '[]' (detection not run yet)
+  // 'null' = detection failed (sentinel value)
+  // '[]' = detection succeeded but found no objects
+  // '[{...}]' = detection succeeded with objects
+  const normalizedImages = images.map((img) => ({
+    ...img,
+    detected_items: img.detected_items ?? '[]',
+  }));
+  
+  // Debug: Log raw database results
+  console.log('=== RAW DB QUERY RESULTS ===');
+  normalizedImages.forEach((img, index) => {
+    console.log(`Raw DB Image ${index}:`, JSON.stringify(img, null, 2));
+    console.log(`detected_items check:`, {
+      exists: 'detected_items' in img,
+      value: img.detected_items,
+      type: typeof img.detected_items,
+      isNull: img.detected_items === null,
+      isUndefined: img.detected_items === undefined,
+    });
+  });
+  
+  return normalizedImages;
 }
 
 export function createRoomImage(
@@ -242,12 +268,55 @@ export function createRoomImage(
   url: string,
   prompt: string,
   viewType: string = 'perspective',
-  detectedItems: string = '[]'
+  detectedItems: string | null = null
 ): RoomImage | undefined {
-  return executeReturning<RoomImage>(
-    'INSERT INTO room_images (room_id, url, prompt, view_type, detected_items) VALUES (?, ?, ?, ?, ?) RETURNING *',
-    [roomId, url, prompt, viewType, detectedItems]
+  // Handle detection states:
+  // null/undefined = detection not run or failed → save as 'null' string (sentinel value)
+  // '[]' = detection succeeded but found no objects (valid empty result)
+  // '[{...}]' = detection succeeded and found objects
+  // Never save '[]' when detection failed - use 'null' string instead
+  const normalizedDetectedItems = detectedItems !== null && detectedItems !== undefined 
+    ? detectedItems 
+    : 'null';
+  
+  // Debug: Log what we're saving
+  console.log('=== CREATING ROOM IMAGE ===');
+  console.log('detectedItems being saved:', {
+    value: normalizedDetectedItems,
+    type: typeof normalizedDetectedItems,
+    length: normalizedDetectedItems.length,
+  });
+  
+  // SQLite doesn't support RETURNING in older versions, so insert then query
+  execute(
+    'INSERT INTO room_images (room_id, url, prompt, view_type, detected_items) VALUES (?, ?, ?, ?, ?)',
+    [roomId, url, prompt, viewType, normalizedDetectedItems]
   );
+  
+  // Get the last inserted row
+  const result = queryOne<RoomImage>(
+    'SELECT id, room_id, url, prompt, view_type, detected_items, created_at FROM room_images WHERE id = last_insert_rowid()'
+  );
+  
+  // Debug: Log what was returned
+  if (result) {
+    console.log('=== CREATED ROOM IMAGE RESULT ===');
+    console.log('Returned image:', {
+      id: result.id,
+      detected_items: result.detected_items,
+      detected_items_type: typeof result.detected_items,
+      all_keys: Object.keys(result),
+    });
+    
+    // Ensure detected_items is present
+    if (!result.detected_items) {
+      console.warn('WARNING: detected_items missing from created image, updating...');
+      updateRoomImageItems(result.id, normalizedDetectedItems);
+      result.detected_items = normalizedDetectedItems;
+    }
+  }
+  
+  return result;
 }
 
 export function updateRoomImageItems(id: number, detectedItems: string): void {
