@@ -1,5 +1,5 @@
-import { streamText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
+import { streamText, convertToModelMessages, stepCountIs } from 'ai';
 import { getSession } from '@/lib/auth/mock-auth';
 import { getProjectById, getRoomById, createMessage } from '@/lib/db/queries';
 import { createAiTools } from '@/lib/ai/tools';
@@ -14,7 +14,15 @@ export async function POST(request: Request) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const { messages, projectId, roomId } = await request.json();
+    const body = await request.json();
+    console.log('=== Chat API Request ===');
+    console.log('Raw body keys:', Object.keys(body));
+
+    const { messages, projectId, roomId } = body;
+
+    console.log('Extracted - Project ID:', projectId);
+    console.log('Extracted - Room ID:', roomId);
+    console.log('Extracted - Messages count:', messages?.length);
 
     if (!projectId) {
       return new Response('Project ID is required', { status: 400 });
@@ -35,54 +43,119 @@ export async function POST(request: Request) {
       ? JSON.parse(project.global_preferences)
       : {};
 
-    // Transform messages from parts format to content format if needed
-    const transformedMessages = messages.map((msg: Record<string, unknown>) => {
-      // If message already has content, use it as-is
-      if (msg.content !== undefined) {
-        return msg;
-      }
-      // Transform parts array to content string
-      if (Array.isArray(msg.parts)) {
-        const textParts = msg.parts
-          .filter((part: { type?: string }) => part.type === 'text')
-          .map((part: { text?: string }) => part.text || '')
-          .join('');
-        return { ...msg, content: textParts, parts: undefined };
-      }
-      return { ...msg, content: '' };
-    });
-
-    // Save user message to database
-    const lastMessage = transformedMessages[transformedMessages.length - 1];
+    // Save user message to database ONLY if it's new (no numeric DB ID)
+    const lastMessage = messages[messages.length - 1];
     if (lastMessage?.role === 'user') {
-      const content = typeof lastMessage.content === 'string'
-        ? lastMessage.content
-        : JSON.stringify(lastMessage.content);
-      createMessage(projectId, 'user', content || '', roomId);
+      const hasDbId = lastMessage.id && !isNaN(Number(lastMessage.id));
+      if (!hasDbId) {
+        // Extract content from either content field or parts array
+        let content = '';
+
+        if (typeof lastMessage.content === 'string') {
+          content = lastMessage.content;
+        } else if (Array.isArray(lastMessage.content)) {
+          content = lastMessage.content
+            .filter((p: any) => p.type === 'text')
+            .map((p: any) => p.text)
+            .join('');
+        } else if (Array.isArray(lastMessage.parts)) {
+          // Handle parts array format from frontend
+          content = lastMessage.parts
+            .filter((p: any) => p.type === 'text')
+            .map((p: any) => p.text)
+            .join('');
+        }
+
+        if (content.trim()) {
+          console.log('Saving new user message:', content.substring(0, 100));
+          createMessage(projectId, 'user', content, roomId);
+        } else {
+          console.log('Skipping empty user message');
+        }
+      } else {
+        console.log('Skipping user message with DB ID:', lastMessage.id);
+      }
     }
+
+    // Convert UI messages to model messages format
+    const modelMessages = await convertToModelMessages(messages);
+    console.log('Model messages count:', modelMessages.length);
 
     // Create AI tools with project context
     const tools = createAiTools(projectId, roomId, preferences);
+    console.log('Tools available:', Object.keys(tools));
 
-    // Stream response
+    // Stream response with tools - use experimental_continueSteps to handle multi-step
+    console.log('Starting streamText...');
+
     const result = streamText({
       model: anthropic('claude-sonnet-4-20250514'),
       system: getSystemPrompt(project, currentRoom ?? null),
-      messages: transformedMessages,
+      messages: modelMessages,
       tools,
-      onFinish: async ({ text, toolCalls }) => {
-        // Save assistant message to database
-        createMessage(
-          projectId,
-          'assistant',
-          text || '',
-          roomId,
-          toolCalls ? JSON.stringify(toolCalls) : undefined
-        );
+      stopWhen: stepCountIs(5), // Allow up to 5 tool execution rounds
+      onStepFinish: (step) => {
+        console.log('Step finished:', {
+          text: step.text?.substring(0, 100),
+          toolCalls: step.toolCalls?.map((tc) => tc.toolName),
+          toolResults: step.toolResults?.length,
+          finishReason: step.finishReason,
+        });
       },
     });
 
-    return result.toTextStreamResponse();
+    // Return UI message stream response (supports tool calls and text)
+    const response = result.toUIMessageStreamResponse();
+
+    // Save to DB in the background (don't await to not block streaming)
+    (async () => {
+      try {
+        const [text, toolCalls, toolResults, finishReason] = await Promise.all([
+          result.text,
+          result.toolCalls,
+          result.toolResults,
+          result.finishReason,
+        ]);
+
+        console.log('Full stream completed:', {
+          text: text?.substring(0, 200),
+          toolCallCount: toolCalls?.length,
+          finishReason,
+        });
+
+        // Save assistant message to database after stream ends
+        let toolInvocations = undefined;
+
+        if (toolCalls && toolCalls.length > 0) {
+          toolInvocations = toolCalls.map((call: any, index: number) => {
+            const toolResult = toolResults?.[index] as any;
+            return {
+              state: 'result' as const,
+              toolCallId: call.toolCallId,
+              toolName: call.toolName,
+              args: call.args,
+              result: toolResult?.result ?? null,
+            };
+          });
+        }
+
+        // Only save if there's actual content
+        if (text?.trim() || toolInvocations) {
+          console.log('Saving assistant message to DB');
+          createMessage(
+            projectId,
+            'assistant',
+            text || '',
+            roomId,
+            toolInvocations ? JSON.stringify(toolInvocations) : undefined
+          );
+        }
+      } catch (error) {
+        console.error('Error saving message:', error);
+      }
+    })();
+
+    return response;
   } catch (error) {
     console.error('Chat error:', error);
     return new Response(
