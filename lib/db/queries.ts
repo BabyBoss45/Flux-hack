@@ -252,6 +252,21 @@ export function deleteRoom(id: number): void {
 }
 
 // Room image queries
+export function getRoomImageById(imageId: number): RoomImage | undefined {
+  const image = queryOne<RoomImage>(
+    'SELECT id, room_id, url, prompt, view_type, detected_items, created_at FROM room_images WHERE id = ?',
+    [imageId]
+  );
+  
+  if (!image) return undefined;
+  
+  // Normalize detected_items
+  return {
+    ...image,
+    detected_items: image.detected_items ?? '[]',
+  };
+}
+
 export function getRoomImagesByRoomId(roomId: number): RoomImage[] {
   // Explicitly select all columns to ensure detected_items is included
   const images = queryAll<RoomImage>(

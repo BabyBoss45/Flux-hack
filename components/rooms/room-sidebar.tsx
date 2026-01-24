@@ -43,7 +43,10 @@ export function RoomSidebar({ rooms, selectedRoomId, onSelectRoom }: RoomSidebar
           {rooms.map((room) => (
             <button
               key={room.id}
-              onClick={() => onSelectRoom(room.id)}
+              onClick={() => {
+                console.log(`[ROOM SIDEBAR] Room clicked: ${room.name} (ID: ${room.id})`);
+                onSelectRoom(room.id);
+              }}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors',
                 selectedRoomId === room.id

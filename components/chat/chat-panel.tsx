@@ -14,6 +14,9 @@ interface ChatPanelProps {
   onEditImage?: (imageId: number) => void;
   placeholder?: string;
   disabled?: boolean;
+  selectedObjectTag?: string | null; // Tag to append to input (e.g., "@armchair") - only ONE tag at a time
+  selectedRoomTag?: string | null; // DEPRECATED: Room tags removed - room selection handled via roomId prop
+  currentImageId?: number | null; // CRITICAL: If null, chat is disabled (no visible image)
 }
 
 export function ChatPanel({
@@ -23,10 +26,17 @@ export function ChatPanel({
   onEditImage,
   placeholder = 'Describe your design vision...',
   disabled = false,
+  selectedObjectTag,
+  selectedRoomTag,
+  currentImageId,
 }: ChatPanelProps) {
+  // CRITICAL: Disable chat if no image is visible (except for first generation)
+  // If images exist but currentImageId is null, disable chat
+  const isChatDisabled = disabled || (currentImageId === null && messages.length > 0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState('');
+  const previousObjectTagRef = useRef<string | null>(null);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -42,6 +52,72 @@ export function ChatPanel({
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`;
     }
   }, [input]);
+
+  // Append object tag to input when object is selected (like Cursor's @tag feature)
+  // CRITICAL: Only ONE object tag at a time - replace previous tag when new one is selected
+  useEffect(() => {
+    setInput((currentInput) => {
+      if (selectedObjectTag) {
+        const tagText = `@${selectedObjectTag} `;
+        
+        // If tag changed, replace the old tag with the new one
+        if (selectedObjectTag !== previousObjectTagRef.current) {
+          let newInput = currentInput;
+          
+          // Remove previous object tag if it exists (any @object pattern)
+          if (previousObjectTagRef.current) {
+            const oldTag = `@${previousObjectTagRef.current} `;
+            // Remove from anywhere in the string
+            newInput = newInput.replace(new RegExp(`@${previousObjectTagRef.current}\\s+`, 'g'), '');
+          }
+          
+          // Also remove any existing @object pattern (safety net)
+          newInput = newInput.replace(/@\w+\s+/g, '');
+          
+          // Add new object tag at the start
+          newInput = newInput.trim() ? `${tagText}${newInput.trim()}` : tagText;
+          
+          previousObjectTagRef.current = selectedObjectTag;
+          
+          // Focus the textarea
+          setTimeout(() => {
+            textareaRef.current?.focus();
+            if (textareaRef.current) {
+              const length = newInput.length;
+              textareaRef.current.setSelectionRange(length, length);
+            }
+          }, 0);
+          
+          return newInput;
+        }
+        
+        // Tag unchanged, but ensure it's at the start
+        if (!currentInput.startsWith(tagText)) {
+          let newInput = currentInput;
+          // Remove any existing @object pattern
+          newInput = newInput.replace(/@\w+\s+/g, '');
+          // Add tag at start
+          newInput = newInput.trim() ? `${tagText}${newInput.trim()}` : tagText;
+          return newInput;
+        }
+        
+        return currentInput;
+      } else if (!selectedObjectTag && previousObjectTagRef.current) {
+        // Object tag was deselected - remove it from input
+        const tagToRemove = `@${previousObjectTagRef.current} `;
+        let newInput = currentInput;
+        // Remove the tag from anywhere
+        newInput = newInput.replace(new RegExp(`@${previousObjectTagRef.current}\\s+`, 'g'), '');
+        previousObjectTagRef.current = null;
+        return newInput;
+      }
+      
+      return currentInput;
+    });
+  }, [selectedObjectTag]); // Only depend on selectedObjectTag to avoid loops
+
+  // REMOVED: Room tag functionality - room selection is handled via roomId prop only
+  // No room tags are added to the input anymore
 
   // Extract text content from a message
   const getMessageText = (message: UIMessage): string => {
@@ -88,8 +164,22 @@ export function ChatPanel({
 
   const handleSubmit = () => {
     const trimmed = input.trim();
-    if (trimmed && !isLoading && !disabled) {
-      onSend(trimmed);
+    // CRITICAL: Never allow sending if currentImageId is null (unless it's first message)
+    if (trimmed && !isLoading && !isChatDisabled) {
+      // Double-check currentImageId before sending
+      if (currentImageId === null && messages.length > 0) {
+        console.error('[CHAT PANEL] Blocked send: currentImageId is null but messages exist');
+        return;
+      }
+      
+      // CRITICAL: Append image ID to message so AI knows which image is being edited
+      let messageToSend = trimmed;
+      if (currentImageId) {
+        messageToSend = `[Image ID: ${currentImageId}] ${trimmed}`;
+        console.log('[CHAT PANEL] Appending image ID to message:', { currentImageId, original: trimmed, final: messageToSend });
+      }
+      
+      onSend(messageToSend);
       setInput('');
     }
   };
@@ -221,14 +311,14 @@ export function ChatPanel({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            disabled={isLoading || disabled}
+            placeholder={currentImageId === null && messages.length > 0 ? 'Please select an image to continue...' : placeholder}
+            disabled={isLoading || isChatDisabled}
             className="min-h-[44px] max-h-[150px] resize-none bg-white/5 border-white/10 text-white placeholder:text-white/40 flex-1"
             rows={1}
           />
           <Button
             onClick={handleSubmit}
-            disabled={!input.trim() || isLoading || disabled}
+            disabled={!input.trim() || isLoading || isChatDisabled}
             size="icon"
             className="h-11 w-11 flex-shrink-0 bg-accent-warm hover:bg-accent-warm/90"
           >

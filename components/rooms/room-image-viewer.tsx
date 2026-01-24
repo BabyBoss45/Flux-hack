@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ChevronLeft, ChevronRight, ZoomIn, Download, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -38,37 +38,7 @@ export function RoomImageViewer({
   selectedObjectId,
   onImageLoad,
 }: RoomImageViewerProps) {
-  const imageRef = useRef<HTMLImageElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [imageBounds, setImageBounds] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-
-  useEffect(() => {
-    const updateImageBounds = () => {
-      if (imageRef.current && containerRef.current) {
-        const imgRect = imageRef.current.getBoundingClientRect();
-        const containerRect = containerRef.current.getBoundingClientRect();
-
-        const offsetX = imgRect.left - containerRect.left;
-        const offsetY = imgRect.top - containerRect.top;
-
-        setImageBounds({
-          x: offsetX,
-          y: offsetY,
-          width: imgRect.width,
-          height: imgRect.height,
-        });
-      }
-    };
-
-    updateImageBounds();
-    window.addEventListener('resize', updateImageBounds);
-    const interval = setInterval(updateImageBounds, 100);
-
-    return () => {
-      window.removeEventListener('resize', updateImageBounds);
-      clearInterval(interval);
-    };
-  }, [currentIndex, images]);
+  // Removed imageBounds state and related effects - no longer needed without overlay tags
 
   if (images.length === 0) {
     return (
@@ -124,20 +94,33 @@ export function RoomImageViewer({
 
 
   const handleObjectClick = (object: DetectedObject) => {
+    console.log('[IMAGE VIEWER] Object chip clicked:', {
+      objectId: object.id,
+      objectLabel: object.label,
+      previousSelectedId: selectedObjectId,
+      willReplace: selectedObjectId !== object.id,
+    });
     if (onObjectSelect) {
+      // CRITICAL: This will replace any previously selected object
       onObjectSelect(object);
     }
   };
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
-      onIndexChange(currentIndex - 1);
+      const newIndex = currentIndex - 1;
+      const newImage = images[newIndex];
+      console.log('[IMAGE VIEWER] Previous clicked - Image ID:', newImage?.id, 'Index:', newIndex);
+      onIndexChange(newIndex);
     }
   };
 
   const handleNext = () => {
     if (currentIndex < images.length - 1) {
-      onIndexChange(currentIndex + 1);
+      const newIndex = currentIndex + 1;
+      const newImage = images[newIndex];
+      console.log('[IMAGE VIEWER] Next clicked - Image ID:', newImage?.id, 'Index:', newIndex);
+      onIndexChange(newIndex);
     }
   };
 
@@ -161,112 +144,26 @@ export function RoomImageViewer({
   return (
     <div className="flex flex-col w-full max-h-[700px]">
       {/* Main image - constrained size with breathing room */}
-      <div ref={containerRef} className="relative flex items-center justify-center overflow-hidden p-4 pb-4">
+      <div className="relative flex items-center justify-center overflow-hidden p-4 pb-4">
         <Dialog>
           <DialogTrigger asChild>
-            <button className="relative group cursor-zoom-in w-full flex items-center justify-center">
+            <button 
+              className="relative group cursor-zoom-in w-full flex items-center justify-center"
+              onClick={() => {
+                console.log('[IMAGE VIEWER] Main image clicked - Image ID:', currentImage.id, 'Index:', currentIndex);
+              }}
+            >
               <div className="relative">
                 <img
-                  ref={imageRef}
                   src={currentImage.url}
                   alt={currentImage.prompt}
                   className="max-h-[500px] max-w-full object-contain rounded-lg shadow-lg"
                   onLoad={() => {
                     onImageLoad?.();
-                    // Recalculate bounds after image loads
-                    setTimeout(() => {
-                      if (imageRef.current && containerRef.current) {
-                        const imgRect = imageRef.current.getBoundingClientRect();
-                        const containerRect = containerRef.current.getBoundingClientRect();
-                        const offsetX = imgRect.left - containerRect.left;
-                        const offsetY = imgRect.top - containerRect.top;
-                        setImageBounds({
-                          x: offsetX,
-                          y: offsetY,
-                          width: imgRect.width,
-                          height: imgRect.height,
-                        });
-                      }
-                    }, 0);
                   }}
                   style={{ aspectRatio: '1/1' }}
                 />
-                {/* REQUIREMENT 4 & 7: Object tags overlay - positioned relative to actual image bounds */}
-                {/* REQUIREMENT 5: Render image immediately, tags when available */}
-                {detectedObjects.length > 0 && imageBounds && (
-                  <div className="absolute pointer-events-none" style={{ zIndex: 10 }}>
-                    {detectedObjects.map((obj) => {
-                      const [x1, y1, x2, y2] = obj.bbox;
-                      
-                      // REQUIREMENT 3: Correct bbox math - [x1, y1, x2, y2] normalized to pixels
-                      const left = imageBounds.x + x1 * imageBounds.width;
-                      const top = imageBounds.y + y1 * imageBounds.height;
-                      const width = (x2 - x1) * imageBounds.width;
-                      const height = (y2 - y1) * imageBounds.height;
-                      
-                      // REQUIREMENT 7: Minimum size for visibility
-                      const minSize = 10;
-                      const finalWidth = Math.max(width, minSize);
-                      const finalHeight = Math.max(height, minSize);
-                      
-                      const isSelected = selectedObjectId === obj.id;
-                      return (
-                        <div
-                          key={obj.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleObjectClick(obj);
-                          }}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleObjectClick(obj);
-                            }
-                          }}
-                          className={`absolute pointer-events-auto border-2 transition-all rounded cursor-pointer ${
-                            isSelected
-                              ? 'border-accent-warm bg-accent-warm/40 shadow-lg shadow-accent-warm/50'
-                              : 'border-accent-warm/60 hover:border-accent-warm bg-accent-warm/20 hover:bg-accent-warm/30'
-                          }`}
-                          style={{
-                            left: `${left}px`,
-                            top: `${top}px`,
-                            width: `${finalWidth}px`,
-                            height: `${finalHeight}px`,
-                            zIndex: 20,
-                            minWidth: `${minSize}px`,
-                            minHeight: `${minSize}px`,
-                          }}
-                          onMouseEnter={() => {
-                            // Recalculate bounds on hover to catch layout shifts
-                            if (imageRef.current && containerRef.current) {
-                              const imgRect = imageRef.current.getBoundingClientRect();
-                              const containerRect = containerRef.current.getBoundingClientRect();
-                              const offsetX = imgRect.left - containerRect.left;
-                              const offsetY = imgRect.top - containerRect.top;
-                              setImageBounds({
-                                x: offsetX,
-                                y: offsetY,
-                                width: imgRect.width,
-                                height: imgRect.height,
-                              });
-                            }
-                          }}
-                          title={`Click to edit ${obj.label}`}
-                        >
-                          <span className={`absolute -top-6 left-0 px-2 py-0.5 text-white text-xs font-medium rounded whitespace-nowrap pointer-events-none ${
-                            isSelected ? 'bg-accent-warm' : 'bg-accent-warm/80'
-                          }`}>
-                            {obj.label} {isSelected && '✓'}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                {/* Object overlay tags removed - using chips below image instead */}
               </div>
               <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none">
                 <ZoomIn className="w-8 h-8 text-white" />
@@ -372,7 +269,10 @@ export function RoomImageViewer({
           {images.map((image, index) => (
             <button
               key={image.id}
-              onClick={() => onIndexChange(index)}
+              onClick={() => {
+                console.log('[IMAGE VIEWER] Thumbnail clicked - Image ID:', image.id, 'Index:', index);
+                onIndexChange(index);
+              }}
               className={`flex-shrink-0 w-16 h-16 rounded overflow-hidden border-2 transition-colors ${
                 index === currentIndex
                   ? 'border-accent-warm'
@@ -392,7 +292,7 @@ export function RoomImageViewer({
   );
 }
 
-// Fullscreen image viewer with proper coordinate calculation
+// Fullscreen image viewer - simplified (no overlay tags)
 function FullscreenImageViewer({
   imageUrl,
   detectedObjects,
@@ -404,135 +304,14 @@ function FullscreenImageViewer({
   selectedObjectId?: string | null;
   onObjectClick: (object: DetectedObject) => void;
 }) {
-  const imageRef = useRef<HTMLImageElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [imageBounds, setImageBounds] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-
-  useEffect(() => {
-    const updateImageBounds = () => {
-      if (imageRef.current && containerRef.current) {
-        const imgRect = imageRef.current.getBoundingClientRect();
-        const containerRect = containerRef.current.getBoundingClientRect();
-
-        const offsetX = imgRect.left - containerRect.left;
-        const offsetY = imgRect.top - containerRect.top;
-
-        setImageBounds({
-          x: offsetX,
-          y: offsetY,
-          width: imgRect.width,
-          height: imgRect.height,
-        });
-      }
-    };
-
-    updateImageBounds();
-    window.addEventListener('resize', updateImageBounds);
-    const interval = setInterval(updateImageBounds, 100);
-
-    return () => {
-      window.removeEventListener('resize', updateImageBounds);
-      clearInterval(interval);
-    };
-  }, [imageUrl]);
-
   return (
-    <div ref={containerRef} className="relative">
+    <div className="relative">
       <img
-        ref={imageRef}
         src={imageUrl}
         alt="Room design"
         className="w-full h-auto rounded-lg"
-        onLoad={() => {
-          if (imageRef.current && containerRef.current) {
-            const imgRect = imageRef.current.getBoundingClientRect();
-            const containerRect = containerRef.current.getBoundingClientRect();
-            const offsetX = imgRect.left - containerRect.left;
-            const offsetY = imgRect.top - containerRect.top;
-            setImageBounds({
-              x: offsetX,
-              y: offsetY,
-              width: imgRect.width,
-              height: imgRect.height,
-            });
-          }
-        }}
       />
-      {/* REQUIREMENT 4 & 7: Object tags in fullscreen view */}
-      {detectedObjects.length > 0 && imageBounds && (
-        <div className="absolute pointer-events-none" style={{ zIndex: 10 }}>
-          {detectedObjects.map((obj) => {
-            const [x1, y1, x2, y2] = obj.bbox;
-            
-            // REQUIREMENT 3: Correct bbox math
-            const left = imageBounds.x + x1 * imageBounds.width;
-            const top = imageBounds.y + y1 * imageBounds.height;
-            const width = (x2 - x1) * imageBounds.width;
-            const height = (y2 - y1) * imageBounds.height;
-            
-            // REQUIREMENT 7: Minimum size for visibility
-            const minSize = 10;
-            const finalWidth = Math.max(width, minSize);
-            const finalHeight = Math.max(height, minSize);
-            
-            const isSelected = selectedObjectId === obj.id;
-            return (
-              <div
-                key={obj.id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onObjectClick(obj);
-                }}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onObjectClick(obj);
-                  }
-                }}
-                className={`absolute pointer-events-auto border-2 transition-all rounded cursor-pointer ${
-                  isSelected
-                    ? 'border-accent-warm bg-accent-warm/40 shadow-lg shadow-accent-warm/50'
-                    : 'border-accent-warm/60 hover:border-accent-warm bg-accent-warm/20 hover:bg-accent-warm/30'
-                }`}
-                style={{
-                  left: `${left}px`,
-                  top: `${top}px`,
-                  width: `${finalWidth}px`,
-                  height: `${finalHeight}px`,
-                  zIndex: 20,
-                  minWidth: `${minSize}px`,
-                  minHeight: `${minSize}px`,
-                }}
-                title={`Click to edit ${obj.label}`}
-                onMouseEnter={() => {
-                  // Recalculate bounds on hover
-                  if (imageRef.current && containerRef.current) {
-                    const imgRect = imageRef.current.getBoundingClientRect();
-                    const containerRect = containerRef.current.getBoundingClientRect();
-                    const offsetX = imgRect.left - containerRect.left;
-                    const offsetY = imgRect.top - containerRect.top;
-                    setImageBounds({
-                      x: offsetX,
-                      y: offsetY,
-                      width: imgRect.width,
-                      height: imgRect.height,
-                    });
-                  }
-                }}
-              >
-                <span className={`absolute -top-6 left-0 px-2 py-0.5 text-white text-xs font-medium rounded whitespace-nowrap pointer-events-none ${
-                  isSelected ? 'bg-accent-warm' : 'bg-accent-warm/80'
-                }`}>
-                  {obj.label} {isSelected && '✓'}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* Object overlay tags removed - using chips below image instead */}
     </div>
   );
 }

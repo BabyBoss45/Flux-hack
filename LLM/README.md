@@ -34,7 +34,7 @@ RASTERSCAN_API_KEY=your_rasterscan_api_key_here
 ### Step 3: Start the Server
 
 ```bash
-python -m uvicorn src.api:app --reload --port 8000
+python3 -m uvicorn src.api:app --reload --port 8000
 ```
 
 Server will start at: **http://localhost:8000**
