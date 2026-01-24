@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, ZoomIn, Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ZoomIn, Download, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 
@@ -26,10 +26,11 @@ export function RoomImageViewer({
 }: RoomImageViewerProps) {
   if (images.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-muted/30">
+      <div className="flex-1 flex items-center justify-center bg-white/5">
         <div className="text-center">
-          <p className="text-muted-foreground">No images yet</p>
-          <p className="text-sm text-muted-foreground mt-1">
+          <Image className="w-8 h-8 mx-auto mb-2 text-white/30" />
+          <p className="text-white/50 text-sm">No images yet</p>
+          <p className="text-xs text-white/30 mt-1">
             Chat with the AI to generate room designs
           </p>
         </div>
@@ -69,7 +70,7 @@ export function RoomImageViewer({
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-muted/30">
+    <div className="flex-1 flex flex-col bg-white/5">
       {/* Main image */}
       <div className="flex-1 relative flex items-center justify-center p-4">
         <Dialog>
@@ -85,7 +86,7 @@ export function RoomImageViewer({
               </div>
             </button>
           </DialogTrigger>
-          <DialogContent className="max-w-5xl">
+          <DialogContent className="max-w-5xl bg-surface border-white/10">
             <img
               src={currentImage.url}
               alt={currentImage.prompt}
@@ -100,41 +101,46 @@ export function RoomImageViewer({
             <Button
               variant="secondary"
               size="icon"
-              className="absolute left-4 top-1/2 -translate-y-1/2"
+              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 border-0"
               onClick={handlePrevious}
               disabled={currentIndex === 0}
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4 text-white" />
             </Button>
             <Button
               variant="secondary"
               size="icon"
-              className="absolute right-4 top-1/2 -translate-y-1/2"
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 border-0"
               onClick={handleNext}
               disabled={currentIndex === images.length - 1}
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 text-white" />
             </Button>
           </>
         )}
       </div>
 
       {/* Image info bar */}
-      <div className="border-t bg-background p-3 flex items-center justify-between">
+      <div className="border-t border-white/10 bg-surface/50 p-3 flex items-center justify-between">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{currentImage.prompt}</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm font-medium text-white truncate">{currentImage.prompt}</p>
+          <p className="text-xs text-white/50">
             {currentImage.view_type} view • {new Date(currentImage.created_at).toLocaleDateString()}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           {images.length > 1 && (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-white/50">
               {currentIndex + 1} / {images.length}
             </span>
           )}
-          <Button variant="outline" size="sm" onClick={handleDownload}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownload}
+            className="border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
+          >
             <Download className="w-4 h-4 mr-1" />
             Download
           </Button>
@@ -143,15 +149,15 @@ export function RoomImageViewer({
 
       {/* Thumbnail strip */}
       {images.length > 1 && (
-        <div className="border-t bg-muted/50 p-2 flex gap-2 overflow-x-auto">
+        <div className="border-t border-white/10 bg-white/5 p-2 flex gap-2 overflow-x-auto">
           {images.map((image, index) => (
             <button
               key={image.id}
               onClick={() => onIndexChange(index)}
               className={`flex-shrink-0 w-16 h-16 rounded overflow-hidden border-2 transition-colors ${
                 index === currentIndex
-                  ? 'border-primary'
-                  : 'border-transparent hover:border-muted-foreground/50'
+                  ? 'border-accent-warm'
+                  : 'border-transparent hover:border-white/30'
               }`}
             >
               <img

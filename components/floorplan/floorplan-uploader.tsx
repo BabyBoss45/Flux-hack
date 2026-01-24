@@ -3,7 +3,6 @@
 import { useState, useCallback } from 'react';
 import { Upload, File, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 
 interface FloorplanUploaderProps {
   projectId: number;
@@ -134,96 +133,95 @@ export function FloorplanUploader({
   };
 
   return (
-    <Card className="w-full">
-      <CardContent className="p-6">
-        {!file ? (
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className={`
-              border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer
-              ${isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}
-            `}
-          >
-            <input
-              type="file"
-              id="floorplan-upload"
-              className="hidden"
-              accept=".pdf,.png,.jpg,.jpeg"
-              onChange={handleFileSelect}
-            />
-            <label htmlFor="floorplan-upload" className="cursor-pointer">
-              <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-lg font-medium mb-2">
-                Drop your floor plan here
-              </p>
-              <p className="text-sm text-muted-foreground mb-4">
-                or click to browse
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Supports PDF, PNG, JPG (max 10MB)
-              </p>
-            </label>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {preview && (
-              <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
-                <img
-                  src={preview}
-                  alt="Floor plan preview"
-                  className="object-contain w-full h-full"
-                />
-              </div>
-            )}
-
-            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-              <div className="flex items-center gap-3">
-                <File className="w-5 h-5 text-muted-foreground" />
-                <div>
-                  <p className="font-medium text-sm">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={clearFile}
-                disabled={uploading || parsing}
-              >
-                <X className="w-4 h-4" />
-              </Button>
+    <div className="w-full">
+      {!file ? (
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`
+            border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer
+            ${isDragging ? 'border-accent-warm bg-accent-warm/10' : 'border-white/20 hover:border-white/40'}
+          `}
+        >
+          <input
+            type="file"
+            id="floorplan-upload"
+            className="hidden"
+            accept=".pdf,.png,.jpg,.jpeg"
+            onChange={handleFileSelect}
+          />
+          <label htmlFor="floorplan-upload" className="cursor-pointer">
+            <Upload className="w-12 h-12 mx-auto mb-4 text-white/40" />
+            <p className="text-lg font-medium mb-2 text-white">
+              Drop your floor plan here
+            </p>
+            <p className="text-sm text-white/60 mb-4">
+              or click to browse
+            </p>
+            <p className="text-xs text-white/40">
+              Supports PDF, PNG, JPG (max 10MB)
+            </p>
+          </label>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {preview && (
+            <div className="relative aspect-video bg-white/5 rounded-lg overflow-hidden">
+              <img
+                src={preview}
+                alt="Floor plan preview"
+                className="object-contain w-full h-full"
+              />
             </div>
+          )}
 
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
-
+          <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10">
+            <div className="flex items-center gap-3">
+              <File className="w-5 h-5 text-white/60" />
+              <div>
+                <p className="font-medium text-sm text-white">{file.name}</p>
+                <p className="text-xs text-white/50">
+                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+              </div>
+            </div>
             <Button
-              onClick={handleUpload}
+              variant="ghost"
+              size="icon"
+              onClick={clearFile}
               disabled={uploading || parsing}
-              className="w-full"
+              className="text-white/60 hover:text-white hover:bg-white/10"
             >
-              {uploading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Uploading...
-                </>
-              ) : parsing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Detecting rooms...
-                </>
-              ) : (
-                'Upload & Detect Rooms'
-              )}
+              <X className="w-4 h-4" />
             </Button>
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {error && (
+            <p className="text-sm text-destructive">{error}</p>
+          )}
+
+          <Button
+            onClick={handleUpload}
+            disabled={uploading || parsing}
+            className="w-full bg-accent-warm hover:bg-accent-warm/90"
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Uploading...
+              </>
+            ) : parsing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Detecting rooms...
+              </>
+            ) : (
+              'Upload & Detect Rooms'
+            )}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

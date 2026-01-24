@@ -35,7 +35,7 @@ export function ChatImage({ imageUrl, imageId, message, items, onEdit }: ChatIma
 
   return (
     <div className="mt-3 space-y-2">
-      <div className="relative group rounded-lg overflow-hidden border bg-muted">
+      <div className="relative group rounded-lg overflow-hidden border border-white/10 bg-white/5">
         <img
           src={imageUrl}
           alt="Generated room design"
@@ -46,12 +46,12 @@ export function ChatImage({ imageUrl, imageId, message, items, onEdit }: ChatIma
         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
           <Dialog open={showFullscreen} onOpenChange={setShowFullscreen}>
             <DialogTrigger asChild>
-              <Button size="sm" variant="secondary">
+              <Button size="sm" className="bg-white/20 hover:bg-white/30 text-white">
                 <ZoomIn className="w-4 h-4 mr-1" />
                 View
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-4xl bg-surface border-white/10">
               <img
                 src={imageUrl}
                 alt="Generated room design"
@@ -61,13 +61,21 @@ export function ChatImage({ imageUrl, imageId, message, items, onEdit }: ChatIma
           </Dialog>
 
           {onEdit && (
-            <Button size="sm" variant="secondary" onClick={() => onEdit(imageId)}>
+            <Button
+              size="sm"
+              className="bg-white/20 hover:bg-white/30 text-white"
+              onClick={() => onEdit(imageId)}
+            >
               <Pencil className="w-4 h-4 mr-1" />
               Edit
             </Button>
           )}
 
-          <Button size="sm" variant="secondary" onClick={handleDownload}>
+          <Button
+            size="sm"
+            className="bg-white/20 hover:bg-white/30 text-white"
+            onClick={handleDownload}
+          >
             <Download className="w-4 h-4 mr-1" />
             Save
           </Button>
@@ -75,7 +83,7 @@ export function ChatImage({ imageUrl, imageId, message, items, onEdit }: ChatIma
       </div>
 
       {message && (
-        <p className="text-xs text-muted-foreground">{message}</p>
+        <p className="text-xs text-white/50">{message}</p>
       )}
 
       {items && items.length > 0 && (
@@ -83,7 +91,7 @@ export function ChatImage({ imageUrl, imageId, message, items, onEdit }: ChatIma
           {items.map((item, index) => (
             <span
               key={index}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary text-xs"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/10 text-white/70 text-xs"
             >
               <Check className="w-3 h-3" />
               {item}

@@ -70,13 +70,13 @@ export function ShareDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md bg-surface border-white/10">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-white">
             <Share2 className="w-5 h-5" />
             Share Design
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-white/60">
             {allRoomsApproved
               ? 'Generate a public link to share your completed design'
               : 'Approve all rooms before sharing your design'}
@@ -86,18 +86,26 @@ export function ShareDialog({
         <div className="py-4">
           {!allRoomsApproved ? (
             <div className="text-center py-8">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-                <Link className="w-8 h-8 text-muted-foreground" />
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/10 flex items-center justify-center">
+                <Link className="w-8 h-8 text-white/40" />
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-white/60">
                 Complete the design for all rooms to generate a share link
               </p>
             </div>
           ) : shareUrl ? (
             <div className="space-y-4">
               <div className="flex gap-2">
-                <Input value={shareUrl} readOnly className="flex-1" />
-                <Button onClick={copyToClipboard} variant="outline">
+                <Input
+                  value={shareUrl}
+                  readOnly
+                  className="flex-1 bg-white/5 border-white/10 text-white"
+                />
+                <Button
+                  onClick={copyToClipboard}
+                  variant="outline"
+                  className="border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
+                >
                   {copied ? (
                     <Check className="w-4 h-4" />
                   ) : (
@@ -105,13 +113,17 @@ export function ShareDialog({
                   )}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground text-center">
+              <p className="text-xs text-white/50 text-center">
                 Anyone with this link can view your design
               </p>
             </div>
           ) : (
             <div className="text-center py-4">
-              <Button onClick={generateShareLink} disabled={isGenerating}>
+              <Button
+                onClick={generateShareLink}
+                disabled={isGenerating}
+                className="bg-accent-warm hover:bg-accent-warm/90"
+              >
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -133,7 +145,11 @@ export function ShareDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
+          >
             Close
           </Button>
         </DialogFooter>

@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 interface RoomEntry {
   name: string;
@@ -90,75 +89,76 @@ export function ManualRoomEntry({ projectId, onComplete }: ManualRoomEntryProps)
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Add Rooms Manually</CardTitle>
-        <CardDescription>
+    <div className="w-full space-y-4">
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold text-white">Add Rooms Manually</h3>
+        <p className="text-sm text-white/60">
           Enter the rooms in your space to get started
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {rooms.map((room, index) => (
-          <div key={index} className="flex gap-3 items-start">
-            <div className="flex-1">
-              <Input
-                placeholder="Room name (e.g., Master Bedroom)"
-                value={room.name}
-                onChange={(e) => updateRoom(index, 'name', e.target.value)}
-              />
-            </div>
-            <div className="w-40">
-              <select
-                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
-                value={room.type}
-                onChange={(e) => updateRoom(index, 'type', e.target.value)}
-              >
-                {ROOM_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => removeRoom(index)}
-              disabled={rooms.length === 1}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+        </p>
+      </div>
+
+      {rooms.map((room, index) => (
+        <div key={index} className="flex gap-3 items-start">
+          <div className="flex-1">
+            <Input
+              placeholder="Room name (e.g., Master Bedroom)"
+              value={room.name}
+              onChange={(e) => updateRoom(index, 'name', e.target.value)}
+              className="bg-white/5 border-white/10 text-white placeholder:text-white/40"
+            />
           </div>
-        ))}
+          <div className="w-40">
+            <select
+              className="w-full h-9 px-3 rounded-md border border-white/10 bg-white/5 text-white text-sm"
+              value={room.type}
+              onChange={(e) => updateRoom(index, 'type', e.target.value)}
+            >
+              {ROOM_TYPES.map((type) => (
+                <option key={type} value={type} className="bg-surface text-white">
+                  {type}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => removeRoom(index)}
+            disabled={rooms.length === 1}
+            className="text-white/60 hover:text-white hover:bg-white/10"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      ))}
 
-        <Button
-          variant="outline"
-          onClick={addRoom}
-          className="w-full"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Another Room
-        </Button>
+      <Button
+        variant="outline"
+        onClick={addRoom}
+        className="w-full border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
+      >
+        <Plus className="w-4 h-4 mr-2" />
+        Add Another Room
+      </Button>
 
-        {error && (
-          <p className="text-sm text-destructive">{error}</p>
+      {error && (
+        <p className="text-sm text-destructive">{error}</p>
+      )}
+
+      <Button
+        onClick={handleSubmit}
+        disabled={saving}
+        className="w-full bg-accent-warm hover:bg-accent-warm/90"
+      >
+        {saving ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Creating rooms...
+          </>
+        ) : (
+          'Continue to Design'
         )}
-
-        <Button
-          onClick={handleSubmit}
-          disabled={saving}
-          className="w-full"
-        >
-          {saving ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Creating rooms...
-            </>
-          ) : (
-            'Continue to Design'
-          )}
-        </Button>
-      </CardContent>
-    </Card>
+      </Button>
+    </div>
   );
 }

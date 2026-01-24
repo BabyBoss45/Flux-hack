@@ -3,13 +3,12 @@
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Settings, Share2, Upload, Edit3 } from 'lucide-react';
+import { ArrowLeft, Settings, Share2, Upload, Edit3, Check, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RoomSidebar } from '@/components/rooms/room-sidebar';
+import { Header } from '@/components/layout/header';
+import { RoomGrid } from '@/components/rooms/room-grid';
 import { RoomImageViewer } from '@/components/rooms/room-image-viewer';
-import { ChatInterface } from '@/components/chat/chat-interface';
-import { ChatInput } from '@/components/chat/chat-input';
+import { ChatPanel } from '@/components/chat/chat-panel';
 import { ItemEditDialog } from '@/components/chat/item-edit-dialog';
 import { FloorplanUploader } from '@/components/floorplan/floorplan-uploader';
 import { ManualRoomEntry } from '@/components/floorplan/manual-room-entry';
@@ -62,6 +61,15 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     projectId,
     roomId: selectedRoomId,
   });
+
+  // Calculate current step
+  const allRoomsApproved = rooms.length > 0 && rooms.every((r) => r.approved);
+  const getCurrentStep = (): 1 | 2 | 3 => {
+    if (rooms.length === 0) return 1;
+    if (!allRoomsApproved) return 2;
+    return 3;
+  };
+  const currentStep = getCurrentStep();
 
   // Fetch project data
   useEffect(() => {
@@ -121,7 +129,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   };
 
   const handleRoomsDetected = () => {
-    // Refresh project data
     window.location.reload();
   };
 
@@ -142,21 +149,19 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     setEditDialogOpen(true);
   };
 
-  const handleEditSubmit = async (imageId: number, prompt: string) => {
-    // Send edit request through chat
+  const handleEditSubmit = async (_imageId: number, prompt: string) => {
     sendMessage(`Please edit the image: ${prompt}`);
   };
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
-  const allRoomsApproved = rooms.length > 0 && rooms.every((r) => r.approved);
   const preferences = project?.global_preferences
     ? JSON.parse(project.global_preferences)
     : {};
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin w-8 h-8 border-2 border-accent-warm border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -165,179 +170,215 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     return null;
   }
 
-  // Show setup if no rooms
-  if (rooms.length === 0) {
+  // Step 1: Upload / Setup
+  if (currentStep === 1) {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b bg-card">
-          <div className="container mx-auto px-4 py-4">
-            <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+      <div className="page-shell">
+        <Header showSteps currentStep={1} />
+
+        <main className="page-main">
+          <div className="max-w-6xl mx-auto">
+            <Link
+              href="/"
+              className="inline-flex items-center text-sm text-white/60 hover:text-white mb-4"
+            >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to projects
             </Link>
-            <h1 className="text-xl font-bold mt-2">{project.name}</h1>
-          </div>
-        </header>
 
-        <main className="container mx-auto px-4 py-8 max-w-2xl">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold mb-2">Let&apos;s Get Started</h2>
-            <p className="text-muted-foreground">
-              First, we need to know about your space
-            </p>
-          </div>
+            <h1 className="text-2xl font-bold text-white mb-6">{project.name}</h1>
 
-          {!setupMode ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              <button
-                onClick={() => setSetupMode('upload')}
-                className="p-6 border rounded-lg hover:border-primary hover:bg-primary/5 transition-colors text-left"
-              >
-                <Upload className="w-8 h-8 mb-4 text-primary" />
-                <h3 className="font-semibold mb-2">Upload Floor Plan</h3>
-                <p className="text-sm text-muted-foreground">
-                  Upload a PDF or image of your floor plan and we&apos;ll detect the rooms
-                </p>
-              </button>
+            <div className="grid lg:grid-cols-2 gap-6">
+              {/* Left: Upload panel */}
+              <div className="panel">
+                <div className="panel-header">
+                  <h2 className="text-lg font-semibold text-white">Add Your Space</h2>
+                </div>
+                <div className="panel-body">
+                  {!setupMode ? (
+                    <div className="grid gap-4">
+                      <button
+                        onClick={() => setSetupMode('upload')}
+                        className="p-6 border border-white/20 rounded-lg hover:border-accent-warm hover:bg-accent-warm/10 transition-colors text-left"
+                      >
+                        <Upload className="w-8 h-8 mb-4 text-accent-warm" />
+                        <h3 className="font-semibold mb-2 text-white">Upload Floor Plan</h3>
+                        <p className="text-sm text-white/60">
+                          Upload a PDF or image of your floor plan and we&apos;ll detect the rooms
+                        </p>
+                      </button>
 
-              <button
-                onClick={() => setSetupMode('manual')}
-                className="p-6 border rounded-lg hover:border-primary hover:bg-primary/5 transition-colors text-left"
-              >
-                <Edit3 className="w-8 h-8 mb-4 text-primary" />
-                <h3 className="font-semibold mb-2">Enter Manually</h3>
-                <p className="text-sm text-muted-foreground">
-                  Manually enter the rooms in your space
-                </p>
-              </button>
-            </div>
-          ) : setupMode === 'upload' ? (
-            <div>
-              <Button
-                variant="ghost"
-                onClick={() => setSetupMode(null)}
-                className="mb-4"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <FloorplanUploader
-                projectId={projectId}
-                onUploadComplete={handleUploadComplete}
-                onRoomsDetected={handleRoomsDetected}
+                      <button
+                        onClick={() => setSetupMode('manual')}
+                        className="p-6 border border-white/20 rounded-lg hover:border-accent-warm hover:bg-accent-warm/10 transition-colors text-left"
+                      >
+                        <Edit3 className="w-8 h-8 mb-4 text-accent-warm" />
+                        <h3 className="font-semibold mb-2 text-white">Enter Manually</h3>
+                        <p className="text-sm text-white/60">
+                          Manually enter the rooms in your space
+                        </p>
+                      </button>
+                    </div>
+                  ) : setupMode === 'upload' ? (
+                    <div>
+                      <Button
+                        variant="ghost"
+                        onClick={() => setSetupMode(null)}
+                        className="mb-4 text-white/80 hover:text-white hover:bg-white/10"
+                      >
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back
+                      </Button>
+                      <FloorplanUploader
+                        projectId={projectId}
+                        onUploadComplete={handleUploadComplete}
+                        onRoomsDetected={handleRoomsDetected}
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <Button
+                        variant="ghost"
+                        onClick={() => setSetupMode(null)}
+                        className="mb-4 text-white/80 hover:text-white hover:bg-white/10"
+                      >
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back
+                      </Button>
+                      <ManualRoomEntry
+                        projectId={projectId}
+                        onComplete={handleRoomsDetected}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right: Chat panel for initial goals */}
+              <ChatPanel
+                messages={messages}
+                isLoading={chatLoading}
+                onSend={sendMessage}
+                placeholder="Describe your design goals..."
               />
             </div>
-          ) : (
-            <div>
-              <Button
-                variant="ghost"
-                onClick={() => setSetupMode(null)}
-                className="mb-4"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <ManualRoomEntry
-                projectId={projectId}
-                onComplete={handleRoomsDetected}
-              />
-            </div>
-          )}
+          </div>
         </main>
       </div>
     );
   }
 
-  return (
-    <div className="h-screen flex flex-col">
-      {/* Header */}
-      <header className="border-b bg-card flex-shrink-0">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div>
-              <h1 className="font-semibold">{project.name}</h1>
-              {selectedRoom && (
-                <p className="text-xs text-muted-foreground">
-                  Designing: {selectedRoom.name}
-                </p>
-              )}
+  // Step 2: Design
+  if (currentStep === 2) {
+    return (
+      <div className="page-shell">
+        <Header showSteps currentStep={2} />
+
+        <main className="flex-1 flex overflow-hidden">
+          {/* Left column: Room selection + preview */}
+          <div className="w-80 border-r border-white/10 flex flex-col bg-surface/50">
+            <div className="p-4 border-b border-white/10">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-white">{project.name}</h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPreferencesOpen(true)}
+                  className="text-white/60 hover:text-white hover:bg-white/10"
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+              </div>
+              <RoomGrid
+                rooms={rooms.map((r) => ({ ...r, approved: r.approved === 1 }))}
+                selectedRoomId={selectedRoomId}
+                onSelectRoom={handleRoomSelect}
+              />
             </div>
-          </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPreferencesOpen(true)}
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Preferences
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShareOpen(true)}
-              disabled={!allRoomsApproved}
-            >
-              <Share2 className="w-4 h-4 mr-2" />
-              Share
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Room sidebar */}
-        <RoomSidebar
-          rooms={rooms.map((r) => ({ ...r, approved: r.approved === 1 }))}
-          selectedRoomId={selectedRoomId}
-          onSelectRoom={handleRoomSelect}
-        />
-
-        {/* Main area with tabs */}
-        <div className="flex-1 flex flex-col">
-          <Tabs defaultValue="chat" className="flex-1 flex flex-col">
-            <TabsList className="mx-4 mt-2 w-fit">
-              <TabsTrigger value="chat">Chat</TabsTrigger>
-              <TabsTrigger value="gallery">Gallery</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="chat" className="flex-1 flex flex-col mt-0">
-              <ChatInterface
-                messages={messages}
-                isLoading={chatLoading}
-                onEditImage={handleEditImage}
-              />
-              <ChatInput
-                onSend={sendMessage}
-                isLoading={chatLoading}
-                placeholder={`Describe your vision for the ${selectedRoom?.name || 'room'}...`}
-              />
-            </TabsContent>
-
-            <TabsContent value="gallery" className="flex-1 flex flex-col mt-0">
+            {/* Room preview / images */}
+            <div className="flex-1 overflow-hidden">
               <RoomImageViewer
                 images={roomImages}
                 currentIndex={currentImageIndex}
                 onIndexChange={setCurrentImageIndex}
               />
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
+            </div>
+          </div>
 
-      {/* Dialogs */}
-      <PreferencesDialog
-        open={preferencesOpen}
-        onOpenChange={setPreferencesOpen}
-        projectId={projectId}
-        initialPreferences={preferences}
-        onSave={handlePreferencesSave}
-      />
+          {/* Right: Chat panel */}
+          <div className="flex-1 p-4">
+            <ChatPanel
+              messages={messages}
+              isLoading={chatLoading}
+              onSend={sendMessage}
+              onEditImage={handleEditImage}
+              placeholder={`Describe your vision for the ${selectedRoom?.name || 'room'}...`}
+            />
+          </div>
+        </main>
+
+        {/* Dialogs */}
+        <PreferencesDialog
+          open={preferencesOpen}
+          onOpenChange={setPreferencesOpen}
+          projectId={projectId}
+          initialPreferences={preferences}
+          onSave={handlePreferencesSave}
+        />
+
+        {editingImageId && (
+          <ItemEditDialog
+            open={editDialogOpen}
+            onOpenChange={setEditDialogOpen}
+            imageId={editingImageId}
+            imageUrl={roomImages.find((img) => img.id === editingImageId)?.url || ''}
+            onSubmit={handleEditSubmit}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // Step 3: Finalize
+  return (
+    <div className="page-shell">
+      <Header showSteps currentStep={3} />
+
+      <main className="page-main">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-2xl font-bold text-white">{project.name}</h1>
+              <p className="text-white/60">Your design is complete!</p>
+            </div>
+            <Button
+              onClick={() => setShareOpen(true)}
+              className="bg-accent-warm hover:bg-accent-warm/90"
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Share Design
+            </Button>
+          </div>
+
+          {/* Room gallery */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {rooms.map((room) => {
+              return (
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  projectId={projectId}
+                  onSelect={() => {
+                    setSelectedRoomId(room.id);
+                    // Could show a preview modal here
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
+      </main>
 
       <ShareDialog
         open={shareOpen}
@@ -345,16 +386,65 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         projectId={projectId}
         allRoomsApproved={allRoomsApproved}
       />
-
-      {editingImageId && (
-        <ItemEditDialog
-          open={editDialogOpen}
-          onOpenChange={setEditDialogOpen}
-          imageId={editingImageId}
-          imageUrl={roomImages.find((img) => img.id === editingImageId)?.url || ''}
-          onSubmit={handleEditSubmit}
-        />
-      )}
     </div>
+  );
+}
+
+// Room card component for Step 3
+function RoomCard({
+  room,
+  onSelect,
+}: {
+  room: Room;
+  projectId: number;
+  onSelect: () => void;
+}) {
+  const [thumbnail, setThumbnail] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchThumbnail() {
+      try {
+        const res = await fetch(`/api/rooms/${room.id}/images`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.images?.length > 0) {
+            setThumbnail(data.images[data.images.length - 1].url);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch thumbnail:', error);
+      }
+    }
+    fetchThumbnail();
+  }, [room.id]);
+
+  return (
+    <button
+      onClick={onSelect}
+      className="panel text-left overflow-hidden hover:border-white/20 transition-colors"
+    >
+      {thumbnail ? (
+        <div className="aspect-video relative">
+          <img
+            src={thumbnail}
+            alt={room.name}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute top-2 right-2">
+            <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+              <Check className="w-4 h-4 text-white" />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="aspect-video bg-white/5 flex items-center justify-center">
+          <Image className="w-8 h-8 text-white/20" />
+        </div>
+      )}
+      <div className="p-4">
+        <h3 className="font-semibold text-white">{room.name}</h3>
+        <p className="text-sm text-white/50">{room.type}</p>
+      </div>
+    </button>
   );
 }

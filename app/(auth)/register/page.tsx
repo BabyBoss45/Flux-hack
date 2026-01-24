@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
@@ -42,15 +41,15 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-primary">Create Account</CardTitle>
-          <CardDescription>Start designing your dream space</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <div className="panel w-full max-w-md">
+        <div className="panel-header text-center">
+          <h1 className="text-2xl font-bold text-white">Create Account</h1>
+          <p className="text-white/60 mt-1">Start designing your dream space</p>
+        </div>
+        <div className="panel-body">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="name" className="text-sm font-medium">
+              <label htmlFor="name" className="text-sm font-medium text-white/80">
                 Name
               </label>
               <Input
@@ -60,11 +59,12 @@ export default function RegisterPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/40"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
+              <label htmlFor="email" className="text-sm font-medium text-white/80">
                 Email
               </label>
               <Input
@@ -74,6 +74,7 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/40"
               />
             </div>
 
@@ -81,19 +82,23 @@ export default function RegisterPage() {
               <p className="text-sm text-destructive">{error}</p>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full bg-accent-warm hover:bg-accent-warm/90"
+              disabled={loading}
+            >
               {loading ? 'Creating account...' : 'Create Account'}
             </Button>
           </form>
 
-          <p className="mt-4 text-center text-sm text-muted-foreground">
+          <p className="mt-4 text-center text-sm text-white/50">
             Already have an account?{' '}
-            <Link href="/login" className="text-primary hover:underline">
+            <Link href="/login" className="text-accent-warm hover:underline">
               Sign in
             </Link>
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

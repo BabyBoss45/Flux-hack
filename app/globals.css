@@ -49,6 +49,9 @@
   --color-terracotta: #e2704d;
   --color-sand: #e6e2d8;
   --color-charcoal: #3d3d3d;
+  /* Dark theme surface colors */
+  --color-surface: #242924;
+  --color-accent-warm: #e2704d;
 }
 
 :root {
@@ -88,14 +91,14 @@
 }
 
 .dark {
-  --background: #1a1a1a;
+  --background: #1a1f1a;
   --foreground: #f5f4f2;
-  --card: #262626;
+  --card: #242924;
   --card-foreground: #f5f4f2;
-  --popover: #262626;
+  --popover: #242924;
   --popover-foreground: #f5f4f2;
-  --primary: #8b9a8b;
-  --primary-foreground: #1a1a1a;
+  --primary: #627362;
+  --primary-foreground: #ffffff;
   --secondary: #3d3d3d;
   --secondary-foreground: #f5f4f2;
   --muted: #3d3d3d;
@@ -103,22 +106,22 @@
   --accent: #e2704d;
   --accent-foreground: #ffffff;
   --destructive: #ef4444;
-  --border: #404040;
-  --input: #404040;
-  --ring: #8b9a8b;
-  --chart-1: #8b9a8b;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #627362;
+  --chart-1: #627362;
   --chart-2: #e2704d;
   --chart-3: #4a5a4a;
   --chart-4: #a3b3a3;
   --chart-5: #f0a080;
-  --sidebar: #262626;
+  --sidebar: #242924;
   --sidebar-foreground: #f5f4f2;
-  --sidebar-primary: #8b9a8b;
-  --sidebar-primary-foreground: #1a1a1a;
+  --sidebar-primary: #627362;
+  --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #3d3d3d;
   --sidebar-accent-foreground: #f5f4f2;
-  --sidebar-border: #404040;
-  --sidebar-ring: #8b9a8b;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #627362;
 }
 
 @layer base {
@@ -127,5 +130,42 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Page layout utilities */
+  .page-shell {
+    @apply min-h-screen flex flex-col;
+  }
+
+  .page-main {
+    @apply flex-1 p-4 md:p-6 lg:p-8;
+  }
+
+  /* Glass-morphism panel */
+  .panel {
+    @apply bg-surface/80 backdrop-blur-sm border border-white/10 rounded-xl;
+  }
+
+  .panel-header {
+    @apply px-4 py-3 border-b border-white/10;
+  }
+
+  .panel-body {
+    @apply p-4;
+  }
+
+  /* Chip/tag styling */
+  .chip {
+    @apply inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full;
+  }
+
+  .chip-muted {
+    @apply bg-white/10 text-white/70;
+  }
+
+  .chip-active {
+    @apply bg-accent-warm text-white;
   }
 }

@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -42,15 +41,15 @@ function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-bold text-primary">Welcome Back</CardTitle>
-        <CardDescription>Sign in to your interior design studio</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <div className="panel w-full max-w-md">
+      <div className="panel-header text-center">
+        <h1 className="text-2xl font-bold text-white">Welcome Back</h1>
+        <p className="text-white/60 mt-1">Sign in to your interior design studio</p>
+      </div>
+      <div className="panel-body">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium">
+            <label htmlFor="email" className="text-sm font-medium text-white/80">
               Email
             </label>
             <Input
@@ -60,6 +59,7 @@ function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              className="bg-white/5 border-white/10 text-white placeholder:text-white/40"
             />
           </div>
 
@@ -67,26 +67,30 @@ function LoginForm() {
             <p className="text-sm text-destructive">{error}</p>
           )}
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button
+            type="submit"
+            className="w-full bg-accent-warm hover:bg-accent-warm/90"
+            disabled={loading}
+          >
             {loading ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-muted-foreground">
+        <p className="mt-4 text-center text-sm text-white/50">
           Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-primary hover:underline">
+          <Link href="/register" className="text-accent-warm hover:underline">
             Create one
           </Link>
         </p>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
 export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Suspense fallback={<div className="animate-pulse">Loading...</div>}>
+      <Suspense fallback={<div className="animate-pulse text-white/50">Loading...</div>}>
         <LoginForm />
       </Suspense>
     </div>

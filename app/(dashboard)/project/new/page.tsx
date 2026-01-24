@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Header } from '@/components/layout/header';
 
 export default function NewProjectPage() {
   const [name, setName] = useState('');
@@ -47,59 +47,65 @@ export default function NewProjectPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+    <div className="page-shell">
+      <Header />
+
+      <main className="page-main">
+        <div className="max-w-lg mx-auto">
+          <Link
+            href="/"
+            className="inline-flex items-center text-sm text-white/60 hover:text-white mb-6"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to projects
           </Link>
-        </div>
-      </header>
 
-      {/* Main content */}
-      <main className="container mx-auto px-4 py-8 max-w-lg">
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Create New Project</CardTitle>
-            <CardDescription>
-              Start by giving your project a name
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium">
-                  Project Name
-                </label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="e.g., Downtown Apartment Redesign"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoFocus
-                />
-              </div>
+          <div className="panel">
+            <div className="panel-header text-center">
+              <h1 className="text-2xl font-bold text-white">Create New Project</h1>
+              <p className="text-white/60 mt-1">
+                Start by giving your project a name
+              </p>
+            </div>
+            <div className="panel-body">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="name" className="text-sm font-medium text-white/80">
+                    Project Name
+                  </label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="e.g., Downtown Apartment Redesign"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    autoFocus
+                    className="bg-white/5 border-white/10 text-white placeholder:text-white/40"
+                  />
+                </div>
 
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create Project'
+                {error && (
+                  <p className="text-sm text-destructive">{error}</p>
                 )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-accent-warm hover:bg-accent-warm/90"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create Project'
+                  )}
+                </Button>
+              </form>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
@@ -89,10 +88,10 @@ export function PreferencesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg bg-surface border-white/10">
         <DialogHeader>
-          <DialogTitle>Design Preferences</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-white">Design Preferences</DialogTitle>
+          <DialogDescription className="text-white/60">
             Set your style preferences to guide the AI designer
           </DialogDescription>
         </DialogHeader>
@@ -100,7 +99,7 @@ export function PreferencesDialog({
         <div className="grid gap-4 py-4">
           {/* Style */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Design Style</label>
+            <label className="text-sm font-medium text-white/80">Design Style</label>
             <div className="flex flex-wrap gap-2">
               {STYLE_OPTIONS.map((style) => (
                 <button
@@ -108,8 +107,8 @@ export function PreferencesDialog({
                   onClick={() => setPreferences({ ...preferences, style })}
                   className={`px-3 py-1 text-sm rounded-full border transition-colors ${
                     preferences.style === style
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'hover:bg-muted'
+                      ? 'bg-accent-warm text-white border-accent-warm'
+                      : 'border-white/20 text-white/70 hover:bg-white/10 hover:text-white'
                   }`}
                 >
                   {style}
@@ -120,7 +119,7 @@ export function PreferencesDialog({
 
           {/* Colors */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Color Palette</label>
+            <label className="text-sm font-medium text-white/80">Color Palette</label>
             <div className="flex flex-wrap gap-2">
               {COLOR_OPTIONS.map((color) => (
                 <button
@@ -128,8 +127,8 @@ export function PreferencesDialog({
                   onClick={() => setPreferences({ ...preferences, colors: color })}
                   className={`px-3 py-1 text-sm rounded-full border transition-colors ${
                     preferences.colors === color
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'hover:bg-muted'
+                      ? 'bg-accent-warm text-white border-accent-warm'
+                      : 'border-white/20 text-white/70 hover:bg-white/10 hover:text-white'
                   }`}
                 >
                   {color}
@@ -140,7 +139,7 @@ export function PreferencesDialog({
 
           {/* Budget */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Budget Range</label>
+            <label className="text-sm font-medium text-white/80">Budget Range</label>
             <div className="flex flex-wrap gap-2">
               {BUDGET_OPTIONS.map((budget) => (
                 <button
@@ -148,8 +147,8 @@ export function PreferencesDialog({
                   onClick={() => setPreferences({ ...preferences, budget })}
                   className={`px-3 py-1 text-sm rounded-full border transition-colors ${
                     preferences.budget === budget
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'hover:bg-muted'
+                      ? 'bg-accent-warm text-white border-accent-warm'
+                      : 'border-white/20 text-white/70 hover:bg-white/10 hover:text-white'
                   }`}
                 >
                   {budget}
@@ -160,21 +159,30 @@ export function PreferencesDialog({
 
           {/* Notes */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Additional Notes</label>
+            <label className="text-sm font-medium text-white/80">Additional Notes</label>
             <Textarea
               placeholder="Any specific requirements, inspirations, or things to avoid..."
               value={preferences.notes || ''}
               onChange={(e) => setPreferences({ ...preferences, notes: e.target.value })}
               rows={3}
+              className="bg-white/5 border-white/10 text-white placeholder:text-white/40"
             />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
+          >
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="bg-accent-warm hover:bg-accent-warm/90"
+          >
             {isSaving ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
