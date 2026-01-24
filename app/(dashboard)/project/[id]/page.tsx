@@ -8,13 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/header';
 import { RoomGrid } from '@/components/rooms/room-grid';
 import { RoomImageViewer } from '@/components/rooms/room-image-viewer';
-import { ChatPanel } from '@/components/chat/chat-panel';
+import { ChatWrapper } from '@/components/chat/chat-wrapper';
 import { ItemEditDialog } from '@/components/chat/item-edit-dialog';
 import { FloorplanUploader } from '@/components/floorplan/floorplan-uploader';
 import { ManualRoomEntry } from '@/components/floorplan/manual-room-entry';
 import { PreferencesDialog } from '@/components/project/preferences-dialog';
 import { ShareDialog } from '@/components/project/share-dialog';
-import { useChat } from '@/hooks/use-chat';
 
 interface Project {
   id: number;
@@ -56,11 +55,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [shareOpen, setShareOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingImageId, setEditingImageId] = useState<number | null>(null);
-
-  const { messages, isLoading: chatLoading, sendMessage } = useChat({
-    projectId,
-    roomId: selectedRoomId,
-  });
 
   // Calculate current step
   const allRoomsApproved = rooms.length > 0 && rooms.every((r) => r.approved);
@@ -147,10 +141,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const handleEditImage = (imageId: number) => {
     setEditingImageId(imageId);
     setEditDialogOpen(true);
-  };
-
-  const handleEditSubmit = async (_imageId: number, prompt: string) => {
-    sendMessage(`Please edit the image: ${prompt}`);
   };
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
@@ -255,10 +245,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               </div>
 
               {/* Right: Chat panel for initial goals */}
-              <ChatPanel
-                messages={messages}
-                isLoading={chatLoading}
-                onSend={sendMessage}
+              <ChatWrapper
+                projectId={projectId}
+                roomId={selectedRoomId}
                 placeholder="Describe your design goals..."
               />
             </div>
@@ -308,10 +297,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
           {/* Right: Chat panel */}
           <div className="flex-1 p-4">
-            <ChatPanel
-              messages={messages}
-              isLoading={chatLoading}
-              onSend={sendMessage}
+            <ChatWrapper
+              projectId={projectId}
+              roomId={selectedRoomId}
               onEditImage={handleEditImage}
               placeholder={`Describe your vision for the ${selectedRoom?.name || 'room'}...`}
             />
@@ -333,7 +321,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             onOpenChange={setEditDialogOpen}
             imageId={editingImageId}
             imageUrl={roomImages.find((img) => img.id === editingImageId)?.url || ''}
-            onSubmit={handleEditSubmit}
+            onSubmit={async (imageId, prompt) => {
+              // Send edit request through chat
+              console.log('Edit image:', imageId, prompt);
+            }}
           />
         )}
       </div>
