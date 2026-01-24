@@ -1,36 +1,711 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Flux Interior Design
+
+AI-powered interior design application built with Next.js, SQLite, and the BFL (Black Forest Labs) image generation API.
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+BFL_API_KEY=your_bfl_api_key
+NEXT_PUBLIC_URL=http://localhost:3000
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## API Reference
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+All endpoints require authentication via session cookie unless otherwise noted.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Authentication
 
-## Deploy on Vercel
+#### POST `/api/auth/register`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Register a new user.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Request:**
+```json
+{
+  "email": "user@example.com",
+  "name": "John Doe"
+}
+```
+
+**Response:**
+```json
+{
+  "user": {
+    "id": 1,
+    "email": "user@example.com",
+    "name": "John Doe",
+    "created_at": "2024-01-15T10:30:00.000Z"
+  }
+}
+```
+
+---
+
+#### POST `/api/auth/login`
+
+Login with email.
+
+**Request:**
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Response:**
+```json
+{
+  "user": {
+    "id": 1,
+    "email": "user@example.com",
+    "name": "John Doe",
+    "created_at": "2024-01-15T10:30:00.000Z"
+  }
+}
+```
+
+---
+
+#### POST `/api/auth/logout`
+
+Logout current user.
+
+**Request:** None
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+---
+
+### Projects
+
+#### GET `/api/projects`
+
+Get all projects for the authenticated user.
+
+**Response:**
+```json
+{
+  "projects": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "name": "Modern Home Redesign",
+      "floor_plan_url": "/uploads/floor-plans/plan.pdf",
+      "global_preferences": "{\"style\":\"modern\",\"colors\":[\"white\",\"gray\"]}",
+      "created_at": "2024-01-15T10:30:00.000Z",
+      "updated_at": "2024-01-15T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+#### POST `/api/projects`
+
+Create a new project.
+
+**Request:**
+```json
+{
+  "name": "Beach House Renovation"
+}
+```
+
+**Response:**
+```json
+{
+  "project": {
+    "id": 2,
+    "user_id": 1,
+    "name": "Beach House Renovation",
+    "floor_plan_url": null,
+    "global_preferences": "{}",
+    "created_at": "2024-01-15T14:00:00.000Z",
+    "updated_at": "2024-01-15T14:00:00.000Z"
+  }
+}
+```
+
+---
+
+#### GET `/api/projects/:id`
+
+Get a project with its rooms.
+
+**Response:**
+```json
+{
+  "project": {
+    "id": 1,
+    "user_id": 1,
+    "name": "Modern Home Redesign",
+    "floor_plan_url": "/uploads/floor-plans/plan.pdf",
+    "global_preferences": "{\"style\":\"modern\"}",
+    "created_at": "2024-01-15T10:30:00.000Z",
+    "updated_at": "2024-01-15T12:00:00.000Z"
+  },
+  "rooms": [
+    {
+      "id": 1,
+      "project_id": 1,
+      "name": "Living Room",
+      "type": "Living Room",
+      "geometry": "{\"width\":20,\"height\":15}",
+      "doors": "[\"Entry\",\"To Kitchen\"]",
+      "windows": "[\"South Window\"]",
+      "fixtures": "[]",
+      "adjacent_rooms": "[\"Kitchen\"]",
+      "approved": 0,
+      "created_at": "2024-01-15T10:35:00.000Z",
+      "updated_at": "2024-01-15T10:35:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+#### PATCH `/api/projects/:id`
+
+Update a project.
+
+**Request:**
+```json
+{
+  "name": "Updated Project Name",
+  "global_preferences": "{\"style\":\"minimalist\"}"
+}
+```
+
+**Response:**
+```json
+{
+  "project": {
+    "id": 1,
+    "name": "Updated Project Name",
+    "global_preferences": "{\"style\":\"minimalist\"}",
+    "updated_at": "2024-01-15T15:00:00.000Z"
+  }
+}
+```
+
+---
+
+#### DELETE `/api/projects/:id`
+
+Delete a project.
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+---
+
+### Rooms
+
+#### GET `/api/projects/:id/rooms`
+
+Get all rooms for a project.
+
+**Response:**
+```json
+{
+  "rooms": [
+    {
+      "id": 1,
+      "project_id": 1,
+      "name": "Living Room",
+      "type": "Living Room",
+      "geometry": "{\"width\":20,\"height\":15}",
+      "doors": "[\"Entry\"]",
+      "windows": "[\"South Window\"]",
+      "fixtures": "[]",
+      "adjacent_rooms": "[\"Kitchen\"]",
+      "approved": 0,
+      "created_at": "2024-01-15T10:35:00.000Z",
+      "updated_at": "2024-01-15T10:35:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+#### POST `/api/projects/:id/rooms`
+
+Create a new room.
+
+**Request:**
+```json
+{
+  "name": "Master Bedroom",
+  "type": "Bedroom"
+}
+```
+
+**Response:**
+```json
+{
+  "room": {
+    "id": 2,
+    "project_id": 1,
+    "name": "Master Bedroom",
+    "type": "Bedroom",
+    "geometry": "{}",
+    "doors": "[]",
+    "windows": "[]",
+    "fixtures": "[]",
+    "adjacent_rooms": "[]",
+    "approved": 0,
+    "created_at": "2024-01-15T11:00:00.000Z",
+    "updated_at": "2024-01-15T11:00:00.000Z"
+  }
+}
+```
+
+---
+
+#### GET `/api/rooms/:id`
+
+Get a single room.
+
+**Response:**
+```json
+{
+  "room": {
+    "id": 1,
+    "project_id": 1,
+    "name": "Living Room",
+    "type": "Living Room",
+    "geometry": "{\"width\":20,\"height\":15}",
+    "doors": "[\"Entry\"]",
+    "windows": "[\"South Window\"]",
+    "fixtures": "[]",
+    "adjacent_rooms": "[\"Kitchen\"]",
+    "approved": 0,
+    "created_at": "2024-01-15T10:35:00.000Z",
+    "updated_at": "2024-01-15T10:35:00.000Z"
+  }
+}
+```
+
+---
+
+#### PATCH `/api/rooms/:id`
+
+Update a room.
+
+**Request:**
+```json
+{
+  "name": "Family Room",
+  "geometry": "{\"width\":25,\"height\":18}",
+  "fixtures": "[\"Fireplace\",\"Built-in Shelves\"]"
+}
+```
+
+**Response:**
+```json
+{
+  "room": {
+    "id": 1,
+    "name": "Family Room",
+    "geometry": "{\"width\":25,\"height\":18}",
+    "fixtures": "[\"Fireplace\",\"Built-in Shelves\"]",
+    "updated_at": "2024-01-15T16:00:00.000Z"
+  }
+}
+```
+
+---
+
+#### DELETE `/api/rooms/:id`
+
+Delete a room.
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+---
+
+#### POST `/api/rooms/:id/approve`
+
+Approve a room design (requires at least one image).
+
+**Response:**
+```json
+{
+  "room": {
+    "id": 1,
+    "approved": 1,
+    "updated_at": "2024-01-15T17:00:00.000Z"
+  },
+  "message": "Room approved successfully"
+}
+```
+
+**Error (no images):**
+```json
+{
+  "error": "Room must have at least one design image before approval"
+}
+```
+
+---
+
+### Room Images
+
+#### GET `/api/rooms/:id/images`
+
+Get all images for a room.
+
+**Response:**
+```json
+{
+  "images": [
+    {
+      "id": 1,
+      "room_id": 1,
+      "url": "https://storage.example.com/images/design-1.png",
+      "prompt": "Modern minimalist living room with large windows",
+      "view_type": "perspective",
+      "detected_items": "[\"sofa\",\"coffee table\",\"floor lamp\"]",
+      "created_at": "2024-01-15T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+#### POST `/api/rooms/:id/images`
+
+Save a generated image to a room.
+
+**Request:**
+```json
+{
+  "url": "https://storage.example.com/images/design-2.png",
+  "prompt": "Scandinavian style living room with wooden furniture",
+  "viewType": "perspective",
+  "detectedItems": "[\"sofa\",\"bookshelf\",\"rug\"]"
+}
+```
+
+**Response:**
+```json
+{
+  "image": {
+    "id": 2,
+    "room_id": 1,
+    "url": "https://storage.example.com/images/design-2.png",
+    "prompt": "Scandinavian style living room with wooden furniture",
+    "view_type": "perspective",
+    "detected_items": "[\"sofa\",\"bookshelf\",\"rug\"]",
+    "created_at": "2024-01-15T13:00:00.000Z"
+  }
+}
+```
+
+---
+
+### Image Generation
+
+#### POST `/api/images/generate`
+
+Generate a new interior design image.
+
+**Request:**
+```json
+{
+  "prompt": "Modern minimalist kitchen with white cabinets and marble countertops",
+  "width": 1024,
+  "height": 768,
+  "async": false
+}
+```
+
+**Response (sync mode):**
+```json
+{
+  "imageUrl": "https://bfl-cdn.example.com/generated/abc123.png"
+}
+```
+
+**Response (async mode):**
+```json
+{
+  "jobId": "job_abc123xyz",
+  "status": "pending"
+}
+```
+
+---
+
+#### POST `/api/images/edit`
+
+Edit an existing image with a prompt.
+
+**Request:**
+```json
+{
+  "image": "https://example.com/original-image.png",
+  "prompt": "Replace the blue sofa with a tan leather sectional",
+  "mask": "base64_encoded_mask_image",
+  "strength": 0.8,
+  "async": false
+}
+```
+
+**Response (sync mode):**
+```json
+{
+  "imageUrl": "https://bfl-cdn.example.com/edited/def456.png"
+}
+```
+
+**Response (async mode):**
+```json
+{
+  "jobId": "job_def456abc",
+  "status": "pending"
+}
+```
+
+---
+
+#### GET `/api/images/status/:jobId`
+
+Check the status of an async image generation job.
+
+**Response (pending):**
+```json
+{
+  "status": "pending"
+}
+```
+
+**Response (completed):**
+```json
+{
+  "status": "completed",
+  "imageUrl": "https://bfl-cdn.example.com/generated/abc123.png"
+}
+```
+
+**Response (error):**
+```json
+{
+  "status": "error",
+  "error": "Content was moderated by safety filters"
+}
+```
+
+---
+
+### Floor Plan
+
+#### POST `/api/floor-plan/upload`
+
+Upload a floor plan file (PDF or image).
+
+**Request:** `multipart/form-data`
+- `file`: PDF, PNG, or JPEG file (max 10MB)
+
+**Response:**
+```json
+{
+  "url": "/uploads/floor-plans/1705312200000-floorplan.pdf",
+  "filename": "1705312200000-floorplan.pdf",
+  "originalName": "my-home-floorplan.pdf",
+  "size": 2048576,
+  "type": "application/pdf"
+}
+```
+
+---
+
+#### POST `/api/floor-plan/parse`
+
+Parse a floor plan and detect rooms.
+
+**Request:**
+```json
+{
+  "projectId": 1,
+  "floorPlanUrl": "/uploads/floor-plans/1705312200000-floorplan.pdf"
+}
+```
+
+**Response:**
+```json
+{
+  "rooms": [
+    {
+      "id": 1,
+      "project_id": 1,
+      "name": "Living Room",
+      "type": "Living Room",
+      "geometry": "{\"width\":20,\"height\":15}",
+      "doors": "[\"Entry\",\"To Kitchen\"]",
+      "windows": "[\"South Window\",\"West Window\"]",
+      "fixtures": "[]",
+      "adjacent_rooms": "[\"Kitchen\",\"Entry\"]"
+    },
+    {
+      "id": 2,
+      "project_id": 1,
+      "name": "Kitchen",
+      "type": "Kitchen",
+      "geometry": "{\"width\":12,\"height\":10}",
+      "doors": "[\"To Living Room\"]",
+      "windows": "[\"East Window\"]",
+      "fixtures": "[\"Island\",\"Sink\"]",
+      "adjacent_rooms": "[\"Living Room\"]"
+    }
+  ],
+  "message": "Detected 2 rooms in the floor plan"
+}
+```
+
+---
+
+### Sharing
+
+#### POST `/api/share`
+
+Create a shareable link for a project (all rooms must be approved).
+
+**Request:**
+```json
+{
+  "projectId": 1
+}
+```
+
+**Response:**
+```json
+{
+  "url": "http://localhost:3000/share/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+}
+```
+
+**Error (rooms not approved):**
+```json
+{
+  "error": "All rooms must be approved before sharing"
+}
+```
+
+---
+
+#### GET `/api/share/:uuid`
+
+Get shared project data (public, no authentication required).
+
+**Response:**
+```json
+{
+  "project": {
+    "name": "Modern Home Redesign",
+    "preferences": {
+      "style": "modern",
+      "colors": ["white", "gray"]
+    }
+  },
+  "rooms": [
+    {
+      "id": 1,
+      "name": "Living Room",
+      "type": "Living Room",
+      "images": [
+        {
+          "id": 1,
+          "url": "https://storage.example.com/images/design-1.png",
+          "prompt": "Modern minimalist living room",
+          "view_type": "perspective",
+          "detected_items": ["sofa", "coffee table"]
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+### Chat (AI Assistant)
+
+#### POST `/api/chat`
+
+Send a message to the AI design assistant.
+
+**Request:**
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "I want a modern Bauhaus style for my living room"
+    }
+  ],
+  "projectId": 1,
+  "roomId": 1
+}
+```
+
+**Response:** Server-Sent Events (SSE) text stream
+
+---
+
+## Error Responses
+
+All endpoints return errors in the following format:
+
+```json
+{
+  "error": "Error message description"
+}
+```
+
+Common HTTP status codes:
+- `400` - Bad Request (missing or invalid parameters)
+- `401` - Unauthorized (not logged in)
+- `403` - Forbidden (accessing another user's resources)
+- `404` - Not Found
+- `500` - Internal Server Error
+
+---
+
+## Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **Database**: SQLite (better-sqlite3)
+- **AI**: Claude (Anthropic) for chat, BFL for image generation
+- **Styling**: Tailwind CSS
+- **UI Components**: shadcn/ui
