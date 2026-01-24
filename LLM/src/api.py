@@ -267,9 +267,30 @@ async def analyze_and_shop_endpoint(
         # Extract object names list
         object_names = [obj.get("name") for obj in objects_with_shopping]
         
+        # Calculate total price
+        total_price = 0.0
+        price_count = 0
+        for obj in objects_with_shopping:
+            product = obj.get("product")
+            if product and product.get("price"):
+                price_str = product.get("price", "")
+                # Extract first numeric price from string (e.g., "$1,250.00" or "$90.00$99")
+                import re
+                price_match = re.search(r'\$?([\d,]+\.?\d*)', price_str)
+                if price_match:
+                    try:
+                        price_value = float(price_match.group(1).replace(',', ''))
+                        total_price += price_value
+                        price_count += 1
+                    except ValueError:
+                        pass
+        
+        total_price_str = f"${total_price:,.2f}" if price_count > 0 else "N/A"
+        
         return JSONResponse(content={
             "status": "success",
             "object_names": object_names,
+            "total_price": total_price_str,
             "objects": objects_with_shopping,
             "overall_style": analysis.get("overall_style"),
             "color_palette": analysis.get("color_palette", [])
