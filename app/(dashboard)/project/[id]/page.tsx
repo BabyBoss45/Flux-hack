@@ -15,6 +15,7 @@ import { ManualRoomEntry } from '@/components/floorplan/manual-room-entry';
 import { PreferencesDialog } from '@/components/project/preferences-dialog';
 import { ShareDialog } from '@/components/project/share-dialog';
 import { useChat } from '@/hooks/use-chat';
+import { ImageGeneration } from '@/components/ui/ai-chat-image-generation-1';
 
 interface Project {
   id: number;
@@ -325,7 +326,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
         <main className="flex-1 flex overflow-hidden">
           {/* Left column: Room selection + preview */}
-          <div className="w-80 border-r border-white/10 flex flex-col bg-surface/50">
+          <div className="w-1/2 border-r border-white/10 flex flex-col bg-surface/50">
             <div className="p-4 border-b border-white/10">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold text-white">{project.name}</h2>
@@ -363,17 +364,27 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             </div>
 
             {/* Room preview / images */}
-            <div className="flex-1 overflow-hidden">
-              <RoomImageViewer
-                images={roomImages}
-                currentIndex={currentImageIndex}
-                onIndexChange={setCurrentImageIndex}
-              />
+            <div className="flex-1 overflow-hidden flex items-center justify-center">
+              {generating ? (
+                <ImageGeneration className="mx-4">
+                  <div className="flex-1 flex items-center justify-center bg-white/5 min-h-[240px]">
+                    <div className="text-center text-white/60 text-sm">
+                      Generating a new design for this room...
+                    </div>
+                  </div>
+                </ImageGeneration>
+              ) : (
+                <RoomImageViewer
+                  images={roomImages}
+                  currentIndex={currentImageIndex}
+                  onIndexChange={setCurrentImageIndex}
+                />
+              )}
             </div>
           </div>
 
           {/* Right: Chat panel */}
-          <div className="flex-1 p-4">
+          <div className="w-1/2 p-4">
             <ChatPanel
               messages={messages}
               isLoading={chatLoading}
