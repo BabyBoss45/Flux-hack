@@ -1,4 +1,5 @@
 import { queryOne, queryAll, execute, executeReturning } from './index';
+import { logger } from '@/lib/logger';
 
 // Types
 export interface User {
@@ -251,17 +252,33 @@ export function updateRoomImageItems(id: number, detectedItems: string): void {
 
 // Message queries
 export function getMessagesByProjectId(projectId: number): Message[] {
-  return queryAll<Message>(
-    'SELECT * FROM messages WHERE project_id = ? ORDER BY created_at ASC',
-    [projectId]
-  );
+  try {
+    logger.debug('db.queries', 'Fetching messages by projectId', { projectId });
+    const messages = queryAll<Message>(
+      'SELECT * FROM messages WHERE project_id = ? ORDER BY created_at ASC',
+      [projectId]
+    );
+    logger.info('db.queries', 'Messages fetched by projectId', { projectId, count: messages.length });
+    return messages;
+  } catch (error) {
+    logger.error('db.queries', 'Failed to fetch messages by projectId', { error, projectId });
+    throw error;
+  }
 }
 
 export function getMessagesByRoomId(roomId: number): Message[] {
-  return queryAll<Message>(
-    'SELECT * FROM messages WHERE room_id = ? ORDER BY created_at ASC',
-    [roomId]
-  );
+  try {
+    logger.debug('db.queries', 'Fetching messages by roomId', { roomId });
+    const messages = queryAll<Message>(
+      'SELECT * FROM messages WHERE room_id = ? ORDER BY created_at ASC',
+      [roomId]
+    );
+    logger.info('db.queries', 'Messages fetched by roomId', { roomId, count: messages.length });
+    return messages;
+  } catch (error) {
+    logger.error('db.queries', 'Failed to fetch messages by roomId', { error, roomId });
+    throw error;
+  }
 }
 
 export function createMessage(
@@ -271,10 +288,25 @@ export function createMessage(
   roomId?: number,
   toolCalls?: string
 ): Message | undefined {
-  return executeReturning<Message>(
-    'INSERT INTO messages (project_id, room_id, role, content, tool_calls) VALUES (?, ?, ?, ?, ?) RETURNING *',
-    [projectId, roomId || null, role, content, toolCalls || '[]']
-  );
+  try {
+    logger.debug('db.queries', 'Creating message', { projectId, roomId, role, contentLength: content.length });
+
+    const result = executeReturning<Message>(
+      'INSERT INTO messages (project_id, room_id, role, content, tool_calls) VALUES (?, ?, ?, ?, ?) RETURNING *',
+      [projectId, roomId || null, role, content, toolCalls || '[]']
+    );
+
+    if (result) {
+      logger.info('db.queries', 'Message created', { id: result.id, projectId, roomId, role });
+    } else {
+      logger.warn('db.queries', 'Message creation returned undefined', { projectId, roomId, role });
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('db.queries', 'Failed to create message', { error, projectId, roomId, role });
+    throw error;
+  }
 }
 
 // Shared design queries

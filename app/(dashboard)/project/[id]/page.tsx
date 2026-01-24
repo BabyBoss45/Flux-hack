@@ -58,7 +58,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingImageId, setEditingImageId] = useState<number | null>(null);
 
-  const { messages, isLoading: chatLoading, sendMessage } = useChat({
+  const { messages, isLoading: chatLoading, isLoadingHistory, sendMessage } = useChat({
     projectId,
     roomId: selectedRoomId,
   });
@@ -307,16 +307,27 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             </TabsList>
 
             <TabsContent value="chat" className="flex-1 flex flex-col mt-0">
-              <ChatInterface
-                messages={messages}
-                isLoading={chatLoading}
-                onEditImage={handleEditImage}
-              />
-              <ChatInput
-                onSend={sendMessage}
-                isLoading={chatLoading}
-                placeholder={`Describe your vision for the ${selectedRoom?.name || 'room'}...`}
-              />
+              {isLoadingHistory ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Loading conversation history...</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <ChatInterface
+                    messages={messages}
+                    isLoading={chatLoading}
+                    onEditImage={handleEditImage}
+                  />
+                  <ChatInput
+                    onSend={sendMessage}
+                    isLoading={chatLoading}
+                    placeholder={`Describe your vision for the ${selectedRoom?.name || 'room'}...`}
+                  />
+                </>
+              )}
             </TabsContent>
 
             <TabsContent value="gallery" className="flex-1 flex flex-col mt-0">

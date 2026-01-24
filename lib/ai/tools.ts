@@ -10,6 +10,7 @@ import {
   updateRoomImageItems,
 } from '@/lib/db/queries';
 import { buildImagePrompt, getRoomContextPrompt } from './prompts';
+import { logger } from '@/lib/logger';
 
 export function createAiTools(
   _projectId: number,
@@ -37,12 +38,20 @@ export function createAiTools(
       ),
       execute: async ({ description, roomId, viewType }) => {
         const targetRoomId = roomId || currentRoomId;
+        logger.info('ai.tools', 'generate_room_image called', {
+          roomId: targetRoomId,
+          viewType,
+          descLength: description.length,
+        });
+
         if (!targetRoomId) {
+          logger.warn('ai.tools', 'generate_room_image: no room selected');
           return { success: false, error: 'No room selected' };
         }
 
         const room = getRoomById(targetRoomId);
         if (!room) {
+          logger.warn('ai.tools', 'generate_room_image: room not found', { roomId: targetRoomId });
           return { success: false, error: 'Room not found' };
         }
 
@@ -57,6 +66,8 @@ export function createAiTools(
             height: 768,
           });
 
+          logger.debug('ai.tools', 'Image generation job started', { jobId: job.id, roomId: targetRoomId });
+
           // Poll for result
           const result = await pollForResult(job.id);
 
@@ -69,6 +80,12 @@ export function createAiTools(
               viewType || 'perspective'
             );
 
+            logger.info('ai.tools', 'Image generated successfully', {
+              imageId: image?.id,
+              roomId: targetRoomId,
+              viewType,
+            });
+
             return {
               success: true,
               imageUrl: result.imageUrl,
@@ -77,8 +94,10 @@ export function createAiTools(
             };
           }
 
+          logger.error('ai.tools', 'Image generation failed', { error: result.error, roomId: targetRoomId });
           return { success: false, error: result.error || 'Generation failed' };
         } catch (error) {
+          logger.error('ai.tools', 'Exception during image generation', { error, roomId: targetRoomId });
           return {
             success: false,
             error: error instanceof Error ? error.message : 'Generation failed',
@@ -103,12 +122,15 @@ export function createAiTools(
         })
       ),
       execute: async ({ imageId, editDescription }) => {
+        logger.info('ai.tools', 'edit_room_image called', { imageId, roomId: currentRoomId });
+
         const images = currentRoomId
           ? getRoomImagesByRoomId(currentRoomId)
           : [];
         const targetImage = images.find((img) => img.id === imageId);
 
         if (!targetImage) {
+          logger.warn('ai.tools', 'edit_room_image: image not found', { imageId });
           return { success: false, error: 'Image not found' };
         }
 
@@ -124,6 +146,8 @@ export function createAiTools(
             prompt: editDescription,
           });
 
+          logger.debug('ai.tools', 'Image edit job started', { jobId: job.id, imageId });
+
           // Poll for result
           const result = await pollForResult(job.id);
 
@@ -137,6 +161,12 @@ export function createAiTools(
               targetImage.view_type
             );
 
+            logger.info('ai.tools', 'Image edited successfully', {
+              newImageId: newImage?.id,
+              originalImageId: imageId,
+              roomId: currentRoomId,
+            });
+
             return {
               success: true,
               imageUrl: result.imageUrl,
@@ -145,8 +175,10 @@ export function createAiTools(
             };
           }
 
+          logger.error('ai.tools', 'Image edit failed', { error: result.error, imageId });
           return { success: false, error: result.error || 'Edit failed' };
         } catch (error) {
+          logger.error('ai.tools', 'Exception during image edit', { error, imageId });
           return {
             success: false,
             error: error instanceof Error ? error.message : 'Edit failed',
@@ -164,12 +196,15 @@ export function createAiTools(
         })
       ),
       execute: async ({ imageId }) => {
+        logger.info('ai.tools', 'scan_image_items called', { imageId, roomId: currentRoomId });
+
         const images = currentRoomId
           ? getRoomImagesByRoomId(currentRoomId)
           : [];
         const targetImage = images.find((img) => img.id === imageId);
 
         if (!targetImage) {
+          logger.warn('ai.tools', 'scan_image_items: image not found', { imageId });
           return { success: false, error: 'Image not found' };
         }
 
@@ -180,6 +215,8 @@ export function createAiTools(
 
         // Update image with detected items
         updateRoomImageItems(imageId, JSON.stringify(mockItems));
+
+        logger.info('ai.tools', 'Items scanned successfully', { imageId, itemCount: mockItems.length });
 
         return {
           success: true,
@@ -202,18 +239,23 @@ export function createAiTools(
       ),
       execute: async ({ roomId }) => {
         const targetRoomId = roomId || currentRoomId;
+        logger.info('ai.tools', 'approve_room called', { roomId: targetRoomId });
+
         if (!targetRoomId) {
+          logger.warn('ai.tools', 'approve_room: no room selected');
           return { success: false, error: 'No room selected' };
         }
 
         const room = getRoomById(targetRoomId);
         if (!room) {
+          logger.warn('ai.tools', 'approve_room: room not found', { roomId: targetRoomId });
           return { success: false, error: 'Room not found' };
         }
 
         // Check if room has at least one image
         const images = getRoomImagesByRoomId(targetRoomId);
         if (images.length === 0) {
+          logger.warn('ai.tools', 'approve_room: room has no images', { roomId: targetRoomId });
           return {
             success: false,
             error: 'Room must have at least one design image before approval',
@@ -221,6 +263,8 @@ export function createAiTools(
         }
 
         approveRoomDb(targetRoomId);
+
+        logger.info('ai.tools', 'Room approved successfully', { roomId: targetRoomId, roomName: room.name });
 
         return {
           success: true,
@@ -242,17 +286,26 @@ export function createAiTools(
       ),
       execute: async ({ roomId }) => {
         const targetRoomId = roomId || currentRoomId;
+        logger.info('ai.tools', 'get_room_context called', { roomId: targetRoomId });
+
         if (!targetRoomId) {
+          logger.warn('ai.tools', 'get_room_context: no room selected');
           return { success: false, error: 'No room selected' };
         }
 
         const room = getRoomById(targetRoomId);
         if (!room) {
+          logger.warn('ai.tools', 'get_room_context: room not found', { roomId: targetRoomId });
           return { success: false, error: 'Room not found' };
         }
 
         const images = getRoomImagesByRoomId(targetRoomId);
         const context = getRoomContextPrompt(room);
+
+        logger.debug('ai.tools', 'Room context retrieved', {
+          roomId: targetRoomId,
+          imageCount: images.length,
+        });
 
         return {
           success: true,

@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth/mock-auth';
 import { getProjectById, getRoomById, createMessage } from '@/lib/db/queries';
 import { createAiTools } from '@/lib/ai/tools';
 import { getSystemPrompt } from '@/lib/ai/prompts';
+import { logger } from '@/lib/logger';
 
 export const maxDuration = 120;
 
@@ -16,7 +17,10 @@ export async function POST(request: Request) {
 
     const { messages, projectId, roomId } = await request.json();
 
+    logger.info('chat', 'Chat request received', { projectId, roomId, messageCount: messages.length });
+
     if (!projectId) {
+      logger.warn('chat', 'Request missing projectId');
       return new Response('Project ID is required', { status: 400 });
     }
 
@@ -58,7 +62,20 @@ export async function POST(request: Request) {
       const content = typeof lastMessage.content === 'string'
         ? lastMessage.content
         : JSON.stringify(lastMessage.content);
-      createMessage(projectId, 'user', content || '', roomId);
+
+      logger.debug('chat', 'Saving user message', { projectId, roomId, contentLength: content.length });
+
+      try {
+        const savedMessage = createMessage(projectId, 'user', content || '', roomId);
+        if (savedMessage) {
+          logger.info('chat', 'User message saved', { messageId: savedMessage.id, projectId, roomId });
+        } else {
+          logger.error('chat', 'Failed to save user message - returned undefined', { projectId, roomId });
+        }
+      } catch (error) {
+        logger.error('chat', 'Exception saving user message', { error, projectId, roomId });
+        // Don't throw - continue with chat even if save fails
+      }
     }
 
     // Create AI tools with project context
@@ -72,13 +89,36 @@ export async function POST(request: Request) {
       tools,
       onFinish: async ({ text, toolCalls }) => {
         // Save assistant message to database
-        createMessage(
+        logger.debug('chat', 'Saving assistant message', {
           projectId,
-          'assistant',
-          text || '',
           roomId,
-          toolCalls ? JSON.stringify(toolCalls) : undefined
-        );
+          textLength: text?.length || 0,
+          hasToolCalls: !!toolCalls,
+        });
+
+        try {
+          const savedMessage = createMessage(
+            projectId,
+            'assistant',
+            text || '',
+            roomId,
+            toolCalls ? JSON.stringify(toolCalls) : undefined
+          );
+
+          if (savedMessage) {
+            logger.info('chat', 'Assistant message saved', {
+              messageId: savedMessage.id,
+              projectId,
+              roomId,
+              toolCallCount: toolCalls?.length || 0,
+            });
+          } else {
+            logger.error('chat', 'Failed to save assistant message - returned undefined', { projectId, roomId });
+          }
+        } catch (error) {
+          logger.error('chat', 'Exception saving assistant message', { error, projectId, roomId });
+          // Don't throw - message delivery to client already happened
+        }
       },
     });
 

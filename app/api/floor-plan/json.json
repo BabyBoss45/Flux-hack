@@ -1,0 +1,925 @@
+{
+  "status": "success",
+  "analysis_id": "2026-01-24T15-59-16",
+  "confidence": "high",
+  "total_rooms": 15,
+  "total_area_sqm": null,
+  "rooms": [
+    {
+      "id": "room_001",
+      "name": "SWAG AND SIGN IN",
+      "type": "reception/check-in",
+      "area_type": "public",
+      "boundary": {
+        "bbox_normalized": [
+          0.156,
+          0.122,
+          0.446,
+          0.228
+        ],
+        "polygon_normalized": [
+          [
+            0.156,
+            0.122
+          ],
+          [
+            0.446,
+            0.122
+          ],
+          [
+            0.446,
+            0.228
+          ],
+          [
+            0.156,
+            0.228
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "ENTRANCE",
+        "PRESENTATION & HACKING SPACE"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_002",
+      "name": "ENTRANCE",
+      "type": "entrance/lobby",
+      "area_type": "public",
+      "boundary": {
+        "bbox_normalized": [
+          0.486,
+          0.122,
+          0.663,
+          0.228
+        ],
+        "polygon_normalized": [
+          [
+            0.486,
+            0.122
+          ],
+          [
+            0.663,
+            0.122
+          ],
+          [
+            0.663,
+            0.228
+          ],
+          [
+            0.486,
+            0.228
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "SWAG AND SIGN IN",
+        "SESSION ROOMS",
+        "ELEVATORS"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_003",
+      "name": "PRESENTATION & HACKING SPACE",
+      "type": "event space",
+      "area_type": "restricted",
+      "boundary": {
+        "bbox_normalized": [
+          0.156,
+          0.228,
+          0.446,
+          0.465
+        ],
+        "polygon_normalized": [
+          [
+            0.156,
+            0.228
+          ],
+          [
+            0.446,
+            0.228
+          ],
+          [
+            0.446,
+            0.465
+          ],
+          [
+            0.156,
+            0.465
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "SWAG AND SIGN IN",
+        "ELEVATORS",
+        "FOOD AND COFFEE"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_004",
+      "name": "ELEVATORS",
+      "type": "elevators",
+      "area_type": "elevators",
+      "boundary": {
+        "bbox_normalized": [
+          0.446,
+          0.228,
+          0.663,
+          0.465
+        ],
+        "polygon_normalized": [
+          [
+            0.446,
+            0.228
+          ],
+          [
+            0.663,
+            0.228
+          ],
+          [
+            0.663,
+            0.465
+          ],
+          [
+            0.446,
+            0.465
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "ENTRANCE",
+        "PRESENTATION & HACKING SPACE",
+        "ELEVATORS",
+        "WC",
+        "FEMALE WC"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_005",
+      "name": "ELEVATORS",
+      "type": "elevators",
+      "area_type": "elevators",
+      "boundary": {
+        "bbox_normalized": [
+          0.663,
+          0.228,
+          0.847,
+          0.465
+        ],
+        "polygon_normalized": [
+          [
+            0.663,
+            0.228
+          ],
+          [
+            0.847,
+            0.228
+          ],
+          [
+            0.847,
+            0.465
+          ],
+          [
+            0.663,
+            0.465
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "ELEVATORS",
+        "REST SPACE (water re-fill)",
+        "NO ENTRY PLEASE"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_006",
+      "name": "SESSION ROOMS",
+      "type": "meeting room",
+      "area_type": "public",
+      "boundary": {
+        "bbox_normalized": [
+          0.847,
+          0.122,
+          0.969,
+          0.268
+        ],
+        "polygon_normalized": [
+          [
+            0.847,
+            0.122
+          ],
+          [
+            0.969,
+            0.122
+          ],
+          [
+            0.969,
+            0.268
+          ],
+          [
+            0.847,
+            0.268
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "JUDGING ROOM (DEAN)",
+        "SESSION ROOMS",
+        "REST SPACE (water re-fill)"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_007",
+      "name": "JUDGING ROOM (DEAN)",
+      "type": "judging room",
+      "area_type": "restricted",
+      "boundary": {
+        "bbox_normalized": [
+          0.969,
+          0.122,
+          1.125,
+          0.268
+        ],
+        "polygon_normalized": [
+          [
+            0.969,
+            0.122
+          ],
+          [
+            1.125,
+            0.122
+          ],
+          [
+            1.125,
+            0.268
+          ],
+          [
+            0.969,
+            0.268
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "SESSION ROOMS"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_008",
+      "name": "REST SPACE (water re-fill)",
+      "type": "rest area",
+      "area_type": "restricted",
+      "boundary": {
+        "bbox_normalized": [
+          0.847,
+          0.268,
+          0.969,
+          0.465
+        ],
+        "polygon_normalized": [
+          [
+            0.847,
+            0.268
+          ],
+          [
+            0.969,
+            0.268
+          ],
+          [
+            0.969,
+            0.465
+          ],
+          [
+            0.847,
+            0.465
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "SESSION ROOMS",
+        "ELEVATORS",
+        "SESSION ROOMS"
+      ],
+      "features": [
+        "water re-fill"
+      ]
+    },
+    {
+      "id": "room_009",
+      "name": "SESSION ROOMS",
+      "type": "meeting room",
+      "area_type": "public",
+      "boundary": {
+        "bbox_normalized": [
+          0.969,
+          0.268,
+          1.125,
+          0.385
+        ],
+        "polygon_normalized": [
+          [
+            0.969,
+            0.268
+          ],
+          [
+            1.125,
+            0.268
+          ],
+          [
+            1.125,
+            0.385
+          ],
+          [
+            0.969,
+            0.385
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "REST SPACE (water re-fill)",
+        "SESSION ROOMS"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_010",
+      "name": "SESSION ROOMS",
+      "type": "meeting room",
+      "area_type": "public",
+      "boundary": {
+        "bbox_normalized": [
+          0.969,
+          0.385,
+          1.125,
+          0.492
+        ],
+        "polygon_normalized": [
+          [
+            0.969,
+            0.385
+          ],
+          [
+            1.125,
+            0.385
+          ],
+          [
+            1.125,
+            0.492
+          ],
+          [
+            0.969,
+            0.492
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "SESSION ROOMS",
+        "JUDGING ROOM (WARDOUR)"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_011",
+      "name": "JUDGING ROOM (WARDOUR)",
+      "type": "judging room",
+      "area_type": "restricted",
+      "boundary": {
+        "bbox_normalized": [
+          0.969,
+          0.492,
+          1.125,
+          0.612
+        ],
+        "polygon_normalized": [
+          [
+            0.969,
+            0.492
+          ],
+          [
+            1.125,
+            0.492
+          ],
+          [
+            1.125,
+            0.612
+          ],
+          [
+            0.969,
+            0.612
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "SESSION ROOMS"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_012",
+      "name": "FOOD AND COFFEE",
+      "type": "cafe/dining",
+      "area_type": "public",
+      "boundary": {
+        "bbox_normalized": [
+          0.156,
+          0.465,
+          0.446,
+          0.588
+        ],
+        "polygon_normalized": [
+          [
+            0.156,
+            0.465
+          ],
+          [
+            0.446,
+            0.465
+          ],
+          [
+            0.446,
+            0.588
+          ],
+          [
+            0.156,
+            0.588
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "PRESENTATION & HACKING SPACE",
+        "WC",
+        "FEMALE WC",
+        "PODCAST AREA"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_013",
+      "name": "WC",
+      "type": "restroom",
+      "area_type": "public",
+      "boundary": {
+        "bbox_normalized": [
+          0.446,
+          0.465,
+          0.555,
+          0.524
+        ],
+        "polygon_normalized": [
+          [
+            0.446,
+            0.465
+          ],
+          [
+            0.555,
+            0.465
+          ],
+          [
+            0.555,
+            0.524
+          ],
+          [
+            0.446,
+            0.524
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "FOOD AND COFFEE",
+        "ELEVATORS"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_014",
+      "name": "FEMALE WC",
+      "type": "restroom",
+      "area_type": "public",
+      "boundary": {
+        "bbox_normalized": [
+          0.446,
+          0.524,
+          0.555,
+          0.612
+        ],
+        "polygon_normalized": [
+          [
+            0.446,
+            0.524
+          ],
+          [
+            0.555,
+            0.524
+          ],
+          [
+            0.555,
+            0.612
+          ],
+          [
+            0.446,
+            0.612
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "WC",
+        "STAFF KITCHEN"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_015",
+      "name": "STAFF KITCHEN",
+      "type": "kitchen",
+      "area_type": "staff_only",
+      "boundary": {
+        "bbox_normalized": [
+          0.446,
+          0.612,
+          0.555,
+          0.71
+        ],
+        "polygon_normalized": [
+          [
+            0.446,
+            0.612
+          ],
+          [
+            0.555,
+            0.612
+          ],
+          [
+            0.555,
+            0.71
+          ],
+          [
+            0.446,
+            0.71
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "FEMALE WC",
+        "PODCAST AREA"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_016",
+      "name": "PODCAST AREA",
+      "type": "recording studio",
+      "area_type": "restricted",
+      "boundary": {
+        "bbox_normalized": [
+          0.156,
+          0.588,
+          0.446,
+          0.821
+        ],
+        "polygon_normalized": [
+          [
+            0.156,
+            0.588
+          ],
+          [
+            0.446,
+            0.588
+          ],
+          [
+            0.446,
+            0.821
+          ],
+          [
+            0.156,
+            0.821
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "FOOD AND COFFEE",
+        "STAFF KITCHEN",
+        "PODCAST AREA"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_017",
+      "name": "PODCAST AREA",
+      "type": "recording studio",
+      "area_type": "restricted",
+      "boundary": {
+        "bbox_normalized": [
+          0.446,
+          0.71,
+          0.847,
+          0.821
+        ],
+        "polygon_normalized": [
+          [
+            0.446,
+            0.71
+          ],
+          [
+            0.847,
+            0.71
+          ],
+          [
+            0.847,
+            0.821
+          ],
+          [
+            0.446,
+            0.821
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "PODCAST AREA",
+        "NO ENTRY PLEASE"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_018",
+      "name": "NO ENTRY PLEASE",
+      "type": "restricted area",
+      "area_type": "restricted",
+      "boundary": {
+        "bbox_normalized": [
+          0.555,
+          0.465,
+          0.847,
+          0.71
+        ],
+        "polygon_normalized": [
+          [
+            0.555,
+            0.465
+          ],
+          [
+            0.847,
+            0.465
+          ],
+          [
+            0.847,
+            0.71
+          ],
+          [
+            0.555,
+            0.71
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "ELEVATORS",
+        "NO ENTRY PLEASE"
+      ],
+      "features": []
+    },
+    {
+      "id": "room_019",
+      "name": "NO ENTRY PLEASE",
+      "type": "restricted area",
+      "area_type": "restricted",
+      "boundary": {
+        "bbox_normalized": [
+          0.847,
+          0.465,
+          1.125,
+          0.821
+        ],
+        "polygon_normalized": [
+          [
+            0.847,
+            0.465
+          ],
+          [
+            1.125,
+            0.465
+          ],
+          [
+            1.125,
+            0.821
+          ],
+          [
+            0.847,
+            0.821
+          ]
+        ]
+      },
+      "adjacent_rooms": [
+        "NO ENTRY PLEASE",
+        "JUDGING ROOM (WARDOUR)"
+      ],
+      "features": []
+    }
+  ],
+  "validation": {
+    "valid": true,
+    "error_count": 0,
+    "warning_count": 38,
+    "errors": [],
+    "warnings": [
+      {
+        "field": "rooms[0].type",
+        "message": "Unknown room type 'reception/check-in'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[0].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[1].type",
+        "message": "Unknown room type 'entrance/lobby'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[1].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[2].type",
+        "message": "Unknown room type 'event space'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[2].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[3].type",
+        "message": "Unknown room type 'elevators'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[3].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[4].type",
+        "message": "Unknown room type 'elevators'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[4].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[5].type",
+        "message": "Unknown room type 'meeting room'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[5].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[6].type",
+        "message": "Unknown room type 'judging room'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[6].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[7].type",
+        "message": "Unknown room type 'rest area'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[7].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[8].type",
+        "message": "Unknown room type 'meeting room'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[8].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[9].type",
+        "message": "Unknown room type 'meeting room'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[9].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[10].type",
+        "message": "Unknown room type 'judging room'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[10].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[11].type",
+        "message": "Unknown room type 'cafe/dining'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[11].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[12].type",
+        "message": "Unknown room type 'restroom'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[12].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[13].type",
+        "message": "Unknown room type 'restroom'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[13].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[14].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[15].type",
+        "message": "Unknown room type 'recording studio'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[15].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[16].type",
+        "message": "Unknown room type 'recording studio'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[16].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[17].type",
+        "message": "Unknown room type 'restricted area'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[17].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[18].type",
+        "message": "Unknown room type 'restricted area'. Consider using one of: bedroom, kitchen, bathroom, living_area, etc.",
+        "severity": "warning"
+      },
+      {
+        "field": "rooms[18].geometry",
+        "message": "Room geometry is missing",
+        "severity": "warning"
+      },
+      {
+        "field": "total_rooms",
+        "message": "Declared total_rooms (15) doesn't match actual room count (19)",
+        "severity": "warning"
+      }
+    ],
+    "suggestions": [
+      "Consider standardizing room types to common values like: bedroom, kitchen, bathroom, living_area, dining, hallway"
+    ]
+  }
+}
+Response headers
