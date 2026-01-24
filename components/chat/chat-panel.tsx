@@ -45,18 +45,45 @@ export function ChatPanel({
 
   // Extract text content from a message
   const getMessageText = (message: UIMessage): string => {
-    if (!message.parts) return '';
+    const msg = message as any;
 
-    return message.parts
-      .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
-      .map((part) => part.text)
-      .join('');
+    // Debug log
+    if (msg.role === 'assistant') {
+      console.log('Assistant message:', {
+        id: msg.id,
+        contentType: typeof msg.content,
+        content: msg.content,
+        parts: msg.parts,
+      });
+    }
+
+    // Handle string content
+    if (typeof msg.content === 'string') {
+      return msg.content;
+    }
+
+    // Handle parts array (from streaming)
+    if (msg.parts && Array.isArray(msg.parts)) {
+      return msg.parts
+        .filter((part: any) => part.type === 'text')
+        .map((part: any) => part.text)
+        .join('');
+    }
+
+    // Handle content array
+    if (Array.isArray(msg.content)) {
+      return msg.content
+        .filter((part: any) => part.type === 'text')
+        .map((part: any) => part.text)
+        .join('');
+    }
+
+    return '';
   };
 
-  // Check if message has tool parts
-  const getToolParts = (message: UIMessage) => {
-    if (!message.parts) return [];
-    return message.parts.filter((part) => part.type.startsWith('tool-'));
+  // Get tool invocations from message
+  const getToolInvocations = (message: UIMessage) => {
+    return (message as any).toolInvocations || [];
   };
 
   const handleSubmit = () => {
@@ -93,7 +120,7 @@ export function ChatPanel({
         ) : (
           messages.map((message) => {
             const text = getMessageText(message);
-            const toolParts = getToolParts(message);
+            const toolInvocations = getToolInvocations(message);
 
             return (
               <div
@@ -123,19 +150,9 @@ export function ChatPanel({
                     </div>
                   )}
 
-                  {/* Render tool results */}
-                  {toolParts.map((part: unknown, index) => {
-                    const toolPart = part as {
-                      type: 'tool';
-                      toolInvocation: {
-                        toolName: string;
-                        toolCallId: string;
-                        state: string;
-                        result?: Record<string, unknown>;
-                      };
-                    };
-                    const invocation = toolPart.toolInvocation;
-
+                  {/* Render tool invocations */}
+                  {toolInvocations.map((invocation: any, index: any) => {
+                    // Show result if available
                     if (
                       invocation.state === 'result' &&
                       invocation.result?.success &&
@@ -152,6 +169,7 @@ export function ChatPanel({
                       );
                     }
 
+                    // Show loading state for pending/in-progress tools
                     if (invocation.state === 'call' || invocation.state === 'partial-call') {
                       return (
                         <div

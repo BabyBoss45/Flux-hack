@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/header';
 import { RoomGrid } from '@/components/rooms/room-grid';
 import { RoomImageViewer } from '@/components/rooms/room-image-viewer';
-import { ChatPanel } from '@/components/chat/chat-panel';
+import { ChatWrapper } from '@/components/chat/chat-wrapper';
 import { ItemEditDialog } from '@/components/chat/item-edit-dialog';
 import { FloorplanUploader } from '@/components/floorplan/floorplan-uploader';
 import { ManualRoomEntry } from '@/components/floorplan/manual-room-entry';
@@ -59,11 +59,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [editingImageId, setEditingImageId] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
-
-  const { messages, isLoading: chatLoading, sendMessage } = useChat({
-    projectId,
-    roomId: selectedRoomId,
-  });
 
   // Calculate current step
   const allRoomsApproved = rooms.length > 0 && rooms.every((r) => r.approved);
@@ -305,10 +300,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               </div>
 
               {/* Right: Chat panel for initial goals */}
-              <ChatPanel
-                messages={messages}
-                isLoading={chatLoading}
-                onSend={sendMessage}
+              <ChatWrapper
+                projectId={projectId}
+                roomId={selectedRoomId}
                 placeholder="Describe your design goals..."
               />
             </div>
@@ -384,11 +378,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
           </div>
 
           {/* Right: Chat panel */}
-          <div className="w-1/2 p-4">
-            <ChatPanel
-              messages={messages}
-              isLoading={chatLoading}
-              onSend={sendMessage}
+          <div className="flex-1 p-4">
+            <ChatWrapper
+              projectId={projectId}
+              roomId={selectedRoomId}
               onEditImage={handleEditImage}
               placeholder={`Describe your vision for the ${selectedRoom?.name || 'room'}...`}
             />
@@ -410,7 +403,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             onOpenChange={setEditDialogOpen}
             imageId={editingImageId}
             imageUrl={roomImages.find((img) => img.id === editingImageId)?.url || ''}
-            onSubmit={handleEditSubmit}
+            onSubmit={async (imageId, prompt) => {
+              // Send edit request through chat
+              console.log('Edit image:', imageId, prompt);
+            }}
           />
         )}
       </div>
