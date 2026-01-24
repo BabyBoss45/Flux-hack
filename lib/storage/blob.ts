@@ -51,11 +51,22 @@ export async function saveBase64Image(
 ): Promise<{ url: string; filename: string }> {
   await ensureUploadDir();
 
-  // Remove data URL prefix if present
+  // Remove data URL prefix if present and detect format
+  let extension = '.jpg';
+  if (base64Data.startsWith('data:image/png')) {
+    extension = '.png';
+  } else if (base64Data.startsWith('data:image/jpeg')) {
+    extension = '.jpg';
+  } else if (base64Data.startsWith('data:image/gif')) {
+    extension = '.gif';
+  } else if (base64Data.startsWith('data:image/webp')) {
+    extension = '.webp';
+  }
+
   const base64Content = base64Data.replace(/^data:image\/\w+;base64,/, '');
   const buffer = Buffer.from(base64Content, 'base64');
 
-  const filename = `${uuidv4()}.jpg`;
+  const filename = `${uuidv4()}${extension}`;
   const relativePath = subfolder
     ? path.join(UPLOAD_DIR, subfolder, filename)
     : path.join(UPLOAD_DIR, filename);

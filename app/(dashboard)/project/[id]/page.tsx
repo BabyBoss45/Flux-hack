@@ -12,6 +12,8 @@ import { ChatWrapper } from '@/components/chat/chat-wrapper';
 import { ItemEditDialog } from '@/components/chat/item-edit-dialog';
 import { FloorplanUploader } from '@/components/floorplan/floorplan-uploader';
 import { ManualRoomEntry } from '@/components/floorplan/manual-room-entry';
+import { ServiceStatusBanner } from '@/components/floorplan/service-status-banner';
+import { FloorPlanToggle } from '@/components/floorplan/floor-plan-toggle';
 import { PreferencesDialog } from '@/components/project/preferences-dialog';
 import { ShareDialog } from '@/components/project/share-dialog';
 import { ImageGeneration } from '@/components/ui/ai-chat-image-generation-1';
@@ -20,6 +22,7 @@ interface Project {
   id: number;
   name: string;
   floor_plan_url: string | null;
+  annotated_floor_plan_url: string | null;
   global_preferences: string;
 }
 
@@ -240,10 +243,22 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     setSelectedRoomId(roomId);
   };
 
-  const handleUploadComplete = (url: string) => {
+  const handleUploadComplete = (data: {
+    floor_plan_url: string;
+    annotated_floor_plan_url: string;
+    rooms: any[];
+    room_count: number;
+    total_area_sqft: number;
+  }) => {
     if (project) {
-      setProject({ ...project, floor_plan_url: url });
+      setProject({
+        ...project,
+        floor_plan_url: data.floor_plan_url,
+        annotated_floor_plan_url: data.annotated_floor_plan_url,
+      });
     }
+    // Reload to show detected rooms
+    window.location.reload();
   };
 
   const handleRoomsDetected = () => {
@@ -350,10 +365,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                         <ArrowLeft className="w-4 h-4 mr-2" />
                         Back
                       </Button>
+                      <ServiceStatusBanner />
                       <FloorplanUploader
                         projectId={projectId}
                         onUploadComplete={handleUploadComplete}
-                        onRoomsDetected={handleRoomsDetected}
                       />
                     </div>
                   ) : (
@@ -422,6 +437,19 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   />
                 </div>
               </div>
+
+              {/* Floor plan viewer card - optional, shown if floor plan exists */}
+              {project.floor_plan_url && (
+                <div className="panel">
+                  <div className="p-4">
+                    <h3 className="font-semibold text-white text-sm mb-4">Floor Plan</h3>
+                    <FloorPlanToggle
+                      floorPlanUrl={project.floor_plan_url}
+                      annotatedFloorPlanUrl={project.annotated_floor_plan_url}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Chat panel card - stacked below room selection */}
               <div className="flex flex-col min-h-0 flex-1">

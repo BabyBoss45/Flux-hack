@@ -1,25 +1,31 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Upload, File, X, Loader2 } from 'lucide-react';
+import { Upload, File, X, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface FloorplanUploaderProps {
   projectId: number;
-  onUploadComplete: (url: string) => void;
-  onRoomsDetected: () => void;
+  onUploadComplete: (data: {
+    floor_plan_url: string;
+    annotated_floor_plan_url: string;
+    rooms: any[];
+    room_count: number;
+    total_area_sqft: number;
+  }) => void;
 }
+
+type UploadStatus = 'idle' | 'analyzing' | 'uploading' | 'complete' | 'error';
 
 export function FloorplanUploader({
   projectId,
   onUploadComplete,
-  onRoomsDetected,
 }: FloorplanUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [parsing, setParsing] = useState(false);
+  const [status, setStatus] = useState<UploadStatus>('idle');
+  const [statusMessage, setStatusMessage] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -59,9 +65,9 @@ export function FloorplanUploader({
       return;
     }
 
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      setError('File too large. Maximum size is 10MB.');
+    // Validate file size (max 20MB)
+    if (file.size > 20 * 1024 * 1024) {
+      setError('File too large. Maximum size is 20MB.');
       return;
     }
 
@@ -80,49 +86,73 @@ export function FloorplanUploader({
   const handleUpload = async () => {
     if (!file) return;
 
-    setUploading(true);
+    setStatus('analyzing');
     setError(null);
+    setStatusMessage('Preparing upload...');
 
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('projectId', projectId.toString());
 
-      const uploadRes = await fetch('/api/floor-plan/upload', {
+      const response = await fetch('/api/floor-plan/upload', {
         method: 'POST',
         body: formData,
       });
 
-      if (!uploadRes.ok) {
-        const data = await uploadRes.json();
+      if (!response.ok) {
+        const data = await response.json();
         throw new Error(data.error || 'Upload failed');
       }
 
-      const uploadData = await uploadRes.json();
-      onUploadComplete(uploadData.url);
+      // Parse SSE stream
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
 
-      // Now parse the floor plan
-      setParsing(true);
-
-      const parseRes = await fetch('/api/floor-plan/parse', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId,
-          floorPlanUrl: uploadData.url,
-        }),
-      });
-
-      if (!parseRes.ok) {
-        const data = await parseRes.json();
-        throw new Error(data.error || 'Parsing failed');
+      if (!reader) {
+        throw new Error('Failed to read response stream');
       }
 
-      onRoomsDetected();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE events
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          const eventMatch = line.match(/^event: (.+)$/m);
+          const dataMatch = line.match(/^data: (.+)$/m);
+
+          if (eventMatch && dataMatch) {
+            const event = eventMatch[1];
+            const data = JSON.parse(dataMatch[1]);
+
+            if (event === 'progress') {
+              setStatus(data.status);
+              setStatusMessage(data.message);
+            } else if (event === 'complete') {
+              setStatus('complete');
+              setStatusMessage('Upload complete!');
+              onUploadComplete(data);
+            } else if (event === 'error') {
+              setStatus('error');
+              setError(data.error);
+            }
+          }
+        }
+      }
     } catch (err) {
+      setStatus('error');
       setError(err instanceof Error ? err.message : 'Something went wrong');
-    } finally {
-      setUploading(false);
-      setParsing(false);
     }
   };
 
@@ -130,7 +160,11 @@ export function FloorplanUploader({
     setFile(null);
     setPreview(null);
     setError(null);
+    setStatus('idle');
+    setStatusMessage('');
   };
+
+  const isProcessing = status === 'analyzing' || status === 'uploading';
 
   return (
     <div className="w-full">
@@ -160,7 +194,7 @@ export function FloorplanUploader({
               or click to browse
             </p>
             <p className="text-xs text-white/40">
-              Supports PDF, PNG, JPG (max 10MB)
+              Supports PDF, PNG, JPG (max 20MB)
             </p>
           </label>
         </div>
@@ -186,40 +220,48 @@ export function FloorplanUploader({
                 </p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={clearFile}
-              disabled={uploading || parsing}
-              className="text-white/60 hover:text-white hover:bg-white/10"
-            >
-              <X className="w-4 h-4" />
-            </Button>
+            {status === 'idle' && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={clearFile}
+                className="text-white/60 hover:text-white hover:bg-white/10"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
           </div>
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
+          {statusMessage && (
+            <div className="flex items-center gap-2 p-3 bg-white/5 rounded-lg border border-white/10">
+              {isProcessing && <Loader2 className="w-4 h-4 animate-spin text-accent-warm" />}
+              {status === 'complete' && <CheckCircle className="w-4 h-4 text-green-500" />}
+              <p className="text-sm text-white">{statusMessage}</p>
+            </div>
           )}
 
-          <Button
-            onClick={handleUpload}
-            disabled={uploading || parsing}
-            className="w-full bg-accent-warm hover:bg-accent-warm/90"
-          >
-            {uploading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Uploading...
-              </>
-            ) : parsing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Detecting rooms...
-              </>
-            ) : (
-              'Upload & Detect Rooms'
-            )}
-          </Button>
+          {error && (
+            <div className="p-3 bg-destructive/10 border border-destructive/50 rounded-lg">
+              <p className="text-sm text-destructive">{error}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setStatus('idle')}
+                className="mt-2 text-white/60 hover:text-white"
+              >
+                Try again
+              </Button>
+            </div>
+          )}
+
+          {status === 'idle' && (
+            <Button
+              onClick={handleUpload}
+              className="w-full bg-accent-warm hover:bg-accent-warm/90"
+            >
+              Upload & Analyze with AI
+            </Button>
+          )}
         </div>
       )}
     </div>
