@@ -14,7 +14,6 @@ import { FloorplanUploader } from '@/components/floorplan/floorplan-uploader';
 import { ManualRoomEntry } from '@/components/floorplan/manual-room-entry';
 import { PreferencesDialog } from '@/components/project/preferences-dialog';
 import { ShareDialog } from '@/components/project/share-dialog';
-import { useChat } from '@/hooks/use-chat';
 import { ImageGeneration } from '@/components/ui/ai-chat-image-generation-1';
 
 interface Project {
@@ -145,10 +144,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const handleEditImage = (imageId: number) => {
     setEditingImageId(imageId);
     setEditDialogOpen(true);
-  };
-
-  const handleEditSubmit = async (_imageId: number, prompt: string) => {
-    sendMessage(`Please edit the image: ${prompt}`);
   };
 
   const handleTestGenerateImage = async () => {
@@ -364,10 +359,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
               {/* Chat panel card - stacked below room selection */}
               <div className="flex flex-col min-h-0 flex-1">
-                <ChatPanel
-                  messages={messages}
-                  isLoading={chatLoading}
-                  onSend={sendMessage}
+                <ChatWrapper
+                  projectId={projectId}
+                  roomId={selectedRoomId}
                   onEditImage={handleEditImage}
                   placeholder={`Describe your vision for the ${selectedRoom?.name || 'room'}...`}
                 />
