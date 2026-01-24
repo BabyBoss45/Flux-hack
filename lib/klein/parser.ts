@@ -1,0 +1,107 @@
+import { anthropic } from '@ai-sdk/anthropic';
+import { generateObject } from 'ai';
+import { z } from 'zod';
+import type { ParsedInstruction, DetectedObject } from './types';
+
+const ParsedInstructionSchema = z.object({
+  intent: z.enum(['generate_room', 'edit_objects']),
+  edits: z
+    .array(
+      z.object({
+        target: z.string(),
+        action: z.enum(['modify', 'replace']),
+        attributes: z.record(z.string(), z.string().nullable()),
+      })
+    )
+    .optional(),
+  constraints: z.object({
+    preserve_layout: z.boolean(),
+    preserve_lighting: z.boolean(),
+    preserve_camera: z.boolean(),
+  }),
+});
+
+const PARSER_PROMPT = `You are an instruction parser for an interior design editor.
+
+Convert the user's request into STRICT JSON following this schema:
+{
+  intent: "generate_room" | "edit_objects",
+  edits: [
+    {
+      target: string,
+      action: "modify" | "replace",
+      attributes: object
+    }
+  ],
+  constraints: {
+    preserve_layout: boolean,
+    preserve_lighting: boolean,
+    preserve_camera: boolean
+  }
+}
+
+Rules:
+- Do not invent objects
+- Only include objects the user explicitly mentions
+- If unsure, leave attribute as null
+- Output JSON only, no explanation
+
+Available objects: {availableObjects}
+
+User text: {userText}`;
+
+export async function parseUserIntent(
+  userText: string,
+  availableObjects: DetectedObject[],
+  roomId: string
+): Promise<ParsedInstruction> {
+  if (!userText.trim()) {
+    throw new Error('User text cannot be empty');
+  }
+
+  if (!roomId) {
+    throw new Error('Room ID is required');
+  }
+
+  const availableObjectsList = availableObjects.map((obj) => obj.label).join(', ');
+
+  const prompt = PARSER_PROMPT
+    .replace('{availableObjects}', availableObjectsList || 'none')
+    .replace('{userText}', userText);
+
+  try {
+    const { object } = await generateObject({
+      model: anthropic('claude-sonnet-4-20250514'),
+      prompt,
+      schema: ParsedInstructionSchema,
+    });
+
+    const parsed = object as ParsedInstruction;
+    parsed.roomId = roomId;
+
+    if (parsed.intent === 'edit_objects' && parsed.edits) {
+      const validEdits = parsed.edits.filter((edit) =>
+        availableObjects.some((obj) => obj.label.toLowerCase() === edit.target.toLowerCase())
+      );
+      parsed.edits = validEdits.length > 0 ? validEdits : undefined;
+    }
+
+    if (parsed.intent === 'edit_objects' && (!parsed.edits || parsed.edits.length === 0)) {
+      parsed.intent = 'generate_room';
+    }
+
+    return parsed;
+  } catch (error) {
+    console.error('Parser error:', error);
+    return {
+      intent: 'edit_objects',
+      roomId,
+      constraints: {
+        preserve_layout: true,
+        preserve_lighting: true,
+        preserve_camera: true,
+      },
+    };
+  }
+}
+
