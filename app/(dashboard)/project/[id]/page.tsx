@@ -12,8 +12,6 @@ import { ChatWrapper } from '@/components/chat/chat-wrapper';
 import { ItemEditDialog } from '@/components/chat/item-edit-dialog';
 import { FloorplanUploader } from '@/components/floorplan/floorplan-uploader';
 import { ManualRoomEntry } from '@/components/floorplan/manual-room-entry';
-import { ServiceStatusBanner } from '@/components/floorplan/service-status-banner';
-import { FloorPlanToggle } from '@/components/floorplan/floor-plan-toggle';
 import { PreferencesDialog } from '@/components/project/preferences-dialog';
 import { ShareDialog } from '@/components/project/share-dialog';
 import { ImageGeneration } from '@/components/ui/ai-chat-image-generation-1';
@@ -22,7 +20,6 @@ interface Project {
   id: number;
   name: string;
   floor_plan_url: string | null;
-  annotated_floor_plan_url: string | null;
   global_preferences: string;
 }
 
@@ -31,6 +28,40 @@ interface Room {
   name: string;
   type: string;
   approved: number;
+}
+
+// Client-side room keys (stable, human-readable, UNIQUE per room instance)
+type RoomKey = string; // e.g., "living-room-1", "living-room-2", "kitchen-1"
+
+// Normalize room type from name/type
+function normalizeRoomType(room: Room): string {
+  const nameLower = room.name.toLowerCase();
+  const typeLower = room.type?.toLowerCase() || '';
+  
+  if (nameLower.includes('living') || typeLower.includes('living')) return 'living-room';
+  if (nameLower.includes('kitchen') || typeLower.includes('kitchen')) return 'kitchen';
+  if (nameLower.includes('bedroom') || typeLower.includes('bedroom')) return 'bedroom';
+  if (nameLower.includes('bathroom') || typeLower.includes('bath')) return 'bathroom';
+  if (nameLower.includes('dining') || typeLower.includes('dining')) return 'dining';
+  if (nameLower.includes('office') || typeLower.includes('office')) return 'office';
+  return 'other';
+}
+
+// CRITICAL: Generate UNIQUE room keys for each room instance
+// This ensures multiple rooms of the same type get different keys
+function buildRoomKeys(rooms: Room[]): Array<Room & { roomKey: RoomKey }> {
+  const counters: Record<string, number> = {};
+
+  return rooms.map(room => {
+    const type = normalizeRoomType(room);
+    counters[type] = (counters[type] || 0) + 1;
+    const roomKey = `${type}-${counters[type]}` as RoomKey; // e.g., "living-room-1", "living-room-2"
+
+    return {
+      ...room,
+      roomKey, // Store unique key directly on room object
+    };
+  });
 }
 
 interface RoomImage {
@@ -49,9 +80,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
   const [project, setProject] = useState<Project | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
+  const [selectedRoomKey, setSelectedRoomKey] = useState<RoomKey | null>(null);
   const [roomImages, setRoomImages] = useState<RoomImage[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [currentImageId, setCurrentImageId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [setupMode, setSetupMode] = useState<'upload' | 'manual' | null>(null);
 
@@ -83,10 +115,27 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         }
         const data = await res.json();
         setProject(data.project);
-        setRooms(data.rooms || []);
+        const fetchedRooms = data.rooms || [];
+        
+        // CRITICAL: Generate UNIQUE room keys for each room instance
+        // This ensures multiple rooms of the same type get different keys
+        const roomsWithKeys = buildRoomKeys(fetchedRooms);
+        setRooms(roomsWithKeys);
 
-        if (data.rooms?.length > 0 && !selectedRoomId) {
-          setSelectedRoomId(data.rooms[0].id);
+        // CRITICAL: Always set first room key if rooms exist
+        if (roomsWithKeys.length > 0) {
+          const firstRoom = roomsWithKeys[0];
+          const firstRoomKey = firstRoom.roomKey!; // Key is guaranteed after buildRoomKeys
+          console.log('🔥🔥🔥 AUTO-SELECTING FIRST ROOM 🔥🔥🔥', {
+            roomKey: firstRoomKey,
+            roomName: firstRoom.name,
+            roomId: firstRoom.id,
+            totalRooms: roomsWithKeys.length,
+            timestamp: new Date().toISOString(),
+          });
+          setSelectedRoomKey(firstRoomKey);
+        } else {
+          console.warn('⚠️⚠️⚠️ NO ROOMS FOUND ⚠️⚠️⚠️');
         }
       } catch (error) {
         console.error('Failed to fetch project:', error);
@@ -99,7 +148,12 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     fetchProject();
   }, [projectId, router]);
 
-  // Fetch room images when room changes
+  // CRITICAL: Find room by stored roomKey (not recomputed)
+  // This ensures we get the correct room instance, not just the first match
+  const selectedRoom = rooms.find(r => r.roomKey === selectedRoomKey);
+  const selectedRoomId = selectedRoom?.id || null;
+
+  // Fetch room images when room changes (still use DB roomId for image fetching)
   useEffect(() => {
     if (!selectedRoomId) return;
 
@@ -109,28 +163,42 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         if (res.ok) {
           const data = await res.json();
           
-          // Debug: Log what frontend receives
-          console.log('=== FRONTEND RECEIVED IMAGES ===');
-          if (data.images) {
-            data.images.forEach((img: any, index: number) => {
-              console.log(`Frontend Image ${index}:`, {
-                id: img.id,
-                url: img.url,
-                detected_items: img.detected_items,
-                detected_items_type: typeof img.detected_items,
-                detected_items_length: img.detected_items?.length,
-                detected_items_is_null: img.detected_items === null,
-                detected_items_is_undefined: img.detected_items === undefined,
-                detected_items_is_empty: img.detected_items === '',
-                all_keys: Object.keys(img),
-                full_object: img,
-              });
-            });
-          }
-          
           setRoomImages(data.images || []);
           if (data.images?.length > 0) {
             setCurrentImageIndex(0);
+            const firstImageId = data.images[0].id;
+            console.log('[PROJECT PAGE] Room images loaded - Setting currentImageId:', firstImageId);
+            setCurrentImageId(firstImageId);
+          } else {
+            console.log('[PROJECT PAGE] No images in room - Setting currentImageId: null');
+            setCurrentImageId(null);
+          }
+          
+          // Check if any images need object detection and trigger it immediately
+          const imagesNeedingDetection = data.images?.filter((img: any) => {
+            const items = img.detected_items;
+            return !items || items === 'null' || items.trim() === '' || items === '[]';
+          }) || [];
+          
+          // Trigger detection for all images that need it
+          if (imagesNeedingDetection.length > 0) {
+            // Run detection in background, then refresh images
+            fetch(`/api/rooms/${selectedRoomId}/detect-objects`, {
+              method: 'POST',
+            })
+              .then(() => {
+                // Refresh images after detection completes
+                return fetch(`/api/rooms/${selectedRoomId}/images`);
+              })
+              .then(res => res.ok ? res.json() : null)
+              .then(data => {
+                if (data?.images) {
+                  setRoomImages(data.images);
+                }
+              })
+              .catch(err => {
+                console.error('Failed to trigger object detection:', err);
+              });
           }
         }
       } catch (error) {
@@ -139,18 +207,20 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     }
 
     fetchRoomImages();
-  }, [selectedRoomId]);
+  }, [selectedRoomKey, selectedRoomId]); // Depend on both key and computed ID
 
-  // REQUIREMENT 1: Handle image generation from chat - IMMEDIATE state update
+  // CRITICAL: Handle image generation - IMMEDIATE currentImageId update
+  // The visible image MUST be the single source of truth
   const handleImageGenerated = async (imageUrl: string, detectedObjects: any[]) => {
-    // REQUIREMENT 2: Handle detectedObjects correctly - null means not detected, [] means empty
+    // Handle detectedObjects correctly - null means not detected, [] means empty
     const detectedItemsJson = Array.isArray(detectedObjects) && detectedObjects.length > 0
       ? JSON.stringify(detectedObjects)
       : '[]';
     
     // IMMEDIATELY create and display the image (don't wait for API)
+    const tempImageId = Date.now(); // Temporary ID (will be replaced when API syncs)
     const tempImage: RoomImage = {
-      id: Date.now(), // Temporary ID (will be replaced when API syncs)
+      id: tempImageId,
       url: imageUrl,
       prompt: 'Generated image',
       view_type: 'perspective',
@@ -159,12 +229,14 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     };
     
     // CRITICAL: Stop generation animation FIRST, then update images
-    // This ensures the render guard sees roomImages.length > 0 immediately
     setIsGenerating(false);
     
-    // REQUIREMENT 1: Update state IMMEDIATELY - this triggers UI update
+    // CRITICAL: Set currentImageId IMMEDIATELY - before any async operations
+    // This ensures chat can send messages with the correct image ID
+    console.log('[PROJECT PAGE] Image generated - Setting currentImageId IMMEDIATELY:', tempImageId);
+    setCurrentImageId(tempImageId);
+    setCurrentImageIndex(0);
     setRoomImages([tempImage, ...roomImages]);
-    setCurrentImageIndex(0); // Show the latest image
     
     // Preload the image
     setIsImageLoading(true);
@@ -178,6 +250,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     };
     
     // Sync with API in background (non-blocking) to get proper IDs
+    // CRITICAL: Update currentImageId when real ID comes back
     setTimeout(async () => {
       try {
         const res = await fetch(`/api/rooms/${selectedRoomId}/images`);
@@ -186,12 +259,17 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
           const newImages = data.images || [];
           // Update with real data from API (includes proper IDs, etc.)
           if (newImages.length > 0) {
+            const realImageId = newImages[0].id;
+            console.log('[PROJECT PAGE] Images synced from API - Updating currentImageId from', tempImageId, 'to', realImageId);
             setRoomImages(newImages);
             setCurrentImageIndex(0);
+            // CRITICAL: Update currentImageId to real ID - this ensures future edits use correct ID
+            setCurrentImageId(realImageId);
           }
         }
       } catch (error) {
-        // Silent fail - we already have the image displayed
+        // Silent fail - we already have the image displayed with temp ID
+        console.error('[PROJECT PAGE] Failed to sync image ID from API:', error);
       }
     }, 1000);
   };
@@ -215,6 +293,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             setIsImageLoading(true);
             setRoomImages(newImages);
             setCurrentImageIndex(0);
+            setCurrentImageId(newImages[0]?.id || null);
             
             // Preload the image to ensure it's ready before hiding animation
             if (newImages[0]?.url) {
@@ -230,6 +309,33 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               setIsImageLoading(false);
             }
           }
+          
+          // Check if any images need object detection and trigger it
+          // '[]' means detection hasn't run yet (normalized from null), so we need to detect
+          const imagesNeedingDetection = data.images?.filter((img: any) => {
+            const items = img.detected_items;
+            return !items || items === 'null' || items.trim() === '' || items === '[]';
+          }) || [];
+          
+          // Trigger detection for images that need it, then refresh
+          if (imagesNeedingDetection.length > 0) {
+            fetch(`/api/rooms/${selectedRoomId}/detect-objects`, {
+              method: 'POST',
+            })
+              .then(() => {
+                // Refresh images after detection completes to show new detected_items
+                return fetch(`/api/rooms/${selectedRoomId}/images`);
+              })
+              .then(res => res.ok ? res.json() : null)
+              .then(data => {
+                if (data?.images) {
+                  setRoomImages(data.images);
+                }
+              })
+              .catch(err => {
+                console.error('Failed to trigger object detection:', err);
+              });
+          }
         }
       } catch (error) {
         // Silently fail polling
@@ -237,28 +343,49 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     }, 2000); // Poll every 2 seconds
 
     return () => clearInterval(interval);
-  }, [selectedRoomId, roomImages.length]);
+  }, [selectedRoomKey, selectedRoomId, roomImages.length]); // Depend on both key and computed ID
 
-  const handleRoomSelect = (roomId: number) => {
-    setSelectedRoomId(roomId);
+  const handleRoomSelect = (roomKey: RoomKey) => {
+    // CRITICAL: Find room by stored roomKey (not recomputed)
+    const room = rooms.find(r => r.roomKey === roomKey);
+    console.log('🔥🔥🔥 ROOM SELECTED 🔥🔥🔥', {
+      roomKey,
+      roomName: room?.name,
+      roomId: room?.id,
+      timestamp: new Date().toISOString(),
+    });
+    console.trace('Room selection stack trace');
+    setSelectedRoomKey(roomKey);
+    // Clear selected object when switching rooms
+    setSelectedObject(null);
+    // Reset image selection when switching rooms
+    // CRITICAL: Don't set currentImageId to null here - wait for images to load
+    // Setting it to null breaks chat because it can fire before images load
+    setCurrentImageIndex(0);
+    // currentImageId will be set when images are fetched in useEffect
   };
 
-  const handleUploadComplete = (data: {
-    floor_plan_url: string;
-    annotated_floor_plan_url: string;
-    rooms: any[];
-    room_count: number;
-    total_area_sqft: number;
-  }) => {
-    if (project) {
-      setProject({
-        ...project,
-        floor_plan_url: data.floor_plan_url,
-        annotated_floor_plan_url: data.annotated_floor_plan_url,
-      });
+  // Debug: Log when selectedRoomKey changes
+  useEffect(() => {
+    // CRITICAL: Find room by stored roomKey (not recomputed)
+    const room = rooms.find(r => r.roomKey === selectedRoomKey);
+    console.log('🔥🔥🔥 SELECTED ROOM KEY CHANGED 🔥🔥🔥', {
+      selectedRoomKey,
+      roomName: room?.name,
+      roomType: room?.type,
+      roomId: room?.id,
+      totalRooms: rooms.length,
+      timestamp: new Date().toISOString(),
+    });
+    if (!selectedRoomKey) {
+      console.warn('⚠️⚠️⚠️ SELECTED ROOM KEY IS NULL ⚠️⚠️⚠️');
     }
-    // Reload to show detected rooms
-    window.location.reload();
+  }, [selectedRoomKey, rooms]);
+
+  const handleUploadComplete = (url: string) => {
+    if (project) {
+      setProject({ ...project, floor_plan_url: url });
+    }
   };
 
   const handleRoomsDetected = () => {
@@ -283,13 +410,18 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   };
 
   const handleObjectSelect = (object: { id: string; label: string; category: string; bbox: [number, number, number, number] }) => {
+    console.log('[PROJECT PAGE] Object selected - Replacing previous selection:', {
+      previousObject: selectedObject,
+      newObject: { id: object.id, label: object.label },
+    });
+    // CRITICAL: This replaces the previous selection - only ONE object can be selected at a time
     setSelectedObject({ id: object.id, label: object.label });
     
     // Auto-focus chat input and prepend object context
     // The chat placeholder will show "Editing [object]..." which guides the user
   };
 
-  const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
+  // selectedRoom already computed above from selectedRoomKey
   const preferences = project?.global_preferences
     ? JSON.parse(project.global_preferences)
     : {};
@@ -365,10 +497,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                         <ArrowLeft className="w-4 h-4 mr-2" />
                         Back
                       </Button>
-                      <ServiceStatusBanner />
                       <FloorplanUploader
                         projectId={projectId}
                         onUploadComplete={handleUploadComplete}
+                        onRoomsDetected={handleRoomsDetected}
                       />
                     </div>
                   ) : (
@@ -391,13 +523,20 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               </div>
 
               {/* Right: Chat panel for initial goals */}
-              <ChatWrapper
-                projectId={projectId}
-                roomId={selectedRoomId}
-                selectedObjectId={selectedObject?.id || null}
-                onImageGenerated={handleImageGenerated}
-                placeholder="Describe your design goals..."
-              />
+              {/* CRITICAL: Only render chat if a room is selected - roomKey is required */}
+              {/* CRITICAL: Use key to force remount when room changes */}
+              {selectedRoomKey && (
+                <ChatWrapper
+                  key={`chat-${selectedRoomKey}`}
+                  projectId={projectId}
+                  roomKey={selectedRoomKey}
+                  selectedObjectId={selectedObject?.id || null}
+                  selectedObjectLabel={selectedObject?.label || null}
+                  currentImageId={currentImageId}
+                  onImageGenerated={handleImageGenerated}
+                  placeholder="Describe your design goals..."
+                />
+              )}
             </div>
           </div>
         </main>
@@ -430,42 +569,64 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                       <Settings className="w-3.5 h-3.5" />
                     </Button>
                   </div>
-                  <RoomGrid
-                    rooms={rooms.map((r) => ({ ...r, approved: r.approved === 1 }))}
-                    selectedRoomId={selectedRoomId}
-                    onSelectRoom={handleRoomSelect}
-                  />
+                  {rooms.length > 0 ? (
+                    <RoomGrid
+                      rooms={rooms.map((r) => ({ 
+                        key: r.roomKey!, // Use stored unique key
+                        name: r.name,
+                        approved: r.approved === 1 
+                      }))}
+                      selectedRoomKey={selectedRoomKey}
+                      onSelectRoom={handleRoomSelect}
+                    />
+                  ) : (
+                    <div className="text-white/50 text-sm p-4">No rooms yet</div>
+                  )}
                 </div>
               </div>
 
-              {/* Floor plan viewer card - optional, shown if floor plan exists */}
-              {project.floor_plan_url && (
-                <div className="panel">
-                  <div className="p-4">
-                    <h3 className="font-semibold text-white text-sm mb-4">Floor Plan</h3>
-                    <FloorPlanToggle
-                      floorPlanUrl={project.floor_plan_url}
-                      annotatedFloorPlanUrl={project.annotated_floor_plan_url}
-                    />
-                  </div>
-                </div>
-              )}
-
               {/* Chat panel card - stacked below room selection */}
               <div className="flex flex-col min-h-0 flex-1">
-                <ChatWrapper
-                  projectId={projectId}
-                  roomId={selectedRoomId}
-                  selectedObjectId={selectedObject?.id || null}
-                  onEditImage={handleEditImage}
-                  onLoadingChange={setIsGenerating}
-                  onImageGenerated={handleImageGenerated}
-                  placeholder={
-                    selectedObject
-                      ? `Editing ${selectedObject.label}...`
-                      : `Describe your vision for the ${selectedRoom?.name || 'room'}...`
-                  }
-                />
+                {/* VISUAL INDICATOR: Show selected room name */}
+                {selectedRoomKey && selectedRoom && (
+                  <div className="mb-2 px-3 py-2 bg-accent-warm/20 border border-accent-warm/30 rounded text-xs text-white">
+                    <span className="font-semibold">Active Room:</span> {selectedRoom.name} (Key: {selectedRoomKey})
+                  </div>
+                )}
+                {/* CRITICAL: Only render chat if a room is selected - roomKey is required */}
+                {/* CRITICAL: Use key to force remount when room changes */}
+                {selectedRoomKey ? (
+                  <>
+                    {console.log('🔥🔥🔥 RENDERING CHAT WRAPPER 🔥🔥🔥', {
+                      selectedRoomKey,
+                      roomName: selectedRoom?.name,
+                      currentImageId,
+                      timestamp: new Date().toISOString(),
+                    })}
+                    <ChatWrapper
+                      key={`chat-${selectedRoomKey}`}
+                      projectId={projectId}
+                      roomKey={selectedRoomKey}
+                      selectedObjectId={selectedObject?.id || null}
+                      selectedObjectLabel={selectedObject?.label || null}
+                      currentImageId={currentImageId}
+                      onEditImage={handleEditImage}
+                      onLoadingChange={setIsGenerating}
+                      onImageGenerated={handleImageGenerated}
+                      placeholder={
+                        selectedObject
+                          ? `Editing ${selectedObject.label}...`
+                          : `Describe your vision for the ${selectedRoom?.name || 'room'}...`
+                      }
+                    />
+                  </>
+                ) : (
+                  <div className="panel flex items-center justify-center h-full">
+                    <div className="text-white/50 text-sm text-center p-4">
+                      {rooms.length === 0 ? 'No rooms available' : 'Please select a room'}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -484,7 +645,16 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                       <RoomImageViewer
                         images={roomImages}
                         currentIndex={currentImageIndex}
-                        onIndexChange={setCurrentImageIndex}
+                        onIndexChange={(index) => {
+                          // CRITICAL: Set currentImageId IMMEDIATELY when thumbnail is clicked
+                          // The visible image is the single source of truth
+                          if (roomImages[index]) {
+                            const newImageId = roomImages[index].id;
+                            console.log('[PROJECT PAGE] Thumbnail clicked - Setting currentImageId IMMEDIATELY:', newImageId, 'Index:', index);
+                            setCurrentImageId(newImageId);
+                            setCurrentImageIndex(index);
+                          }
+                        }}
                         onObjectSelect={handleObjectSelect}
                         selectedObjectId={selectedObject?.id || null}
                         onImageLoad={() => setIsImageLoading(false)}

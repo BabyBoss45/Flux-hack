@@ -8,6 +8,20 @@ export type DetectedObject = {
   label: string;
   category: 'furniture' | 'surface' | 'lighting' | 'architectural';
   bbox: [number, number, number, number];
+  // Enhanced fields from LLM furniture analysis (optional)
+  primary_color?: string; // Hex color code (e.g., "#8B4513")
+  style_tags?: string[]; // e.g., ["modern", "minimalist", "rustic"]
+  material_tags?: string[]; // e.g., ["wood", "fabric", "leather"]
+  description?: string; // Visual description for shopping
+  // Product search results (optional)
+  product_recommendations?: ProductRecommendation[];
+};
+
+export type ProductRecommendation = {
+  search_query: string;
+  store: string; // e.g., "IKEA", "Wayfair", "Amazon"
+  price_range: string; // e.g., "$500-$900"
+  url: string; // Direct search/purchase link
 };
 
 export type ObjectRecognitionResponse = {

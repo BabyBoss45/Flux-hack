@@ -8,6 +8,8 @@ import {
   approveRoom as approveRoomDb,
   getRoomImagesByRoomId,
   updateRoomImageItems,
+  updateProjectPreferences,
+  addColorsToPalette,
 } from '@/lib/db/queries';
 import { buildImagePrompt, getRoomContextPrompt } from './prompts';
 
@@ -266,6 +268,80 @@ export function createAiTools(
           imageCount: images.length,
           latestImageUrl: images[0]?.url,
         };
+      },
+    }),
+
+    update_project_preferences: tool({
+      description:
+        'Update project design preferences based on user input during onboarding',
+      inputSchema: zodSchema(
+        z.object({
+          building_type: z
+            .string()
+            .optional()
+            .describe(
+              'Type of building (e.g., residential apartment, commercial office)'
+            ),
+          architecture_style: z
+            .string()
+            .optional()
+            .describe(
+              'Design style (e.g., modern minimalist, mid-century modern)'
+            ),
+          atmosphere: z
+            .string()
+            .optional()
+            .describe('Desired mood/feel (e.g., cozy and warm, bright and airy)'),
+          colors: z
+            .array(
+              z.object({
+                hex: z.string().describe('Hex color code (e.g., #3498db)'),
+                name: z
+                  .string()
+                  .describe('Human-readable color name (e.g., Ocean Blue)'),
+              })
+            )
+            .optional()
+            .describe('Color palette for the project'),
+        })
+      ),
+      execute: async ({ building_type, architecture_style, atmosphere, colors }) => {
+        try {
+          // Update text preferences
+          if (building_type || architecture_style || atmosphere) {
+            updateProjectPreferences(_projectId, {
+              building_type,
+              architecture_style,
+              atmosphere,
+            });
+          }
+
+          // Add colors to palette
+          if (colors && colors.length > 0) {
+            const colorsWithOrder = colors.map((color, index) => ({
+              ...color,
+              sort_order: index,
+            }));
+            addColorsToPalette(_projectId, colorsWithOrder);
+          }
+
+          // Build acknowledgment message
+          const updated: string[] = [];
+          if (building_type) updated.push(`building type: ${building_type}`);
+          if (architecture_style) updated.push(`style: ${architecture_style}`);
+          if (atmosphere) updated.push(`atmosphere: ${atmosphere}`);
+          if (colors) updated.push(`${colors.length} colors`);
+
+          return {
+            success: true,
+            message: `Updated project preferences: ${updated.join(', ')}`,
+          };
+        } catch (error) {
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to update preferences',
+          };
+        }
       },
     }),
   };

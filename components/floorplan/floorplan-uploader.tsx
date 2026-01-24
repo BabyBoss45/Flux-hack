@@ -95,7 +95,7 @@ export function FloorplanUploader({
       formData.append('file', file);
       formData.append('projectId', projectId.toString());
 
-      const response = await fetch('/api/floor-plan/upload', {
+      const response = await fetch('/api/floor-plan/upload-and-analyse', {
         method: 'POST',
         body: formData,
       });

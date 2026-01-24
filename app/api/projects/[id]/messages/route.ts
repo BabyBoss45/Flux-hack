@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getSession } from '@/lib/auth/mock-auth';
-import { getProjectById, getMessagesByProjectId, getMessagesByRoomId } from '@/lib/db/queries';
+import { getProjectById, getMessagesByProjectId, getRoomMessagesByRoomId } from '@/lib/db/queries';
 
 export async function GET(
   request: NextRequest,
@@ -32,7 +32,7 @@ export async function GET(
 
     // Fetch messages - filter by room if roomId provided
     const messages = roomId
-      ? getMessagesByRoomId(roomId)
+      ? getRoomMessagesByRoomId(projectId, roomId)
       : getMessagesByProjectId(projectId);
 
     // Transform messages to AI SDK UIMessage format
