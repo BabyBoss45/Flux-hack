@@ -32,9 +32,10 @@ export function Header({ userName, showSteps = false, currentStep = 1 }: HeaderP
   };
 
   return (
-    <header className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-surface/50 backdrop-blur-sm">
-      <Link href="/" className="text-xl font-semibold text-white">
-        Flux Interior Studio
+    <header className="flex items-center justify-between px-6 py-4 border-b border-white/8 bg-surface/80 backdrop-blur-md">
+      <Link href="/" className="text-xl font-semibold text-white flex items-center gap-2">
+        <span className="text-2xl">🌲</span>
+        <span>Flux Interior Studio</span>
       </Link>
 
       {showSteps && (
@@ -42,11 +43,11 @@ export function Header({ userName, showSteps = false, currentStep = 1 }: HeaderP
           {steps.map((step, idx) => (
             <div key={step.num} className="flex items-center">
               <div
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
                   currentStep === step.num
-                    ? "bg-accent-warm text-white"
+                    ? "bg-[#eab308] text-black"
                     : currentStep > step.num
-                    ? "bg-white/20 text-white"
+                    ? "bg-white/12 text-white"
                     : "bg-white/5 text-white/50"
                 }`}
               >

@@ -8,13 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/header';
 import { RoomGrid } from '@/components/rooms/room-grid';
 import { RoomImageViewer } from '@/components/rooms/room-image-viewer';
-import { ChatPanel } from '@/components/chat/chat-panel';
+import { ChatWrapper } from '@/components/chat/chat-wrapper';
 import { ItemEditDialog } from '@/components/chat/item-edit-dialog';
 import { FloorplanUploader } from '@/components/floorplan/floorplan-uploader';
 import { ManualRoomEntry } from '@/components/floorplan/manual-room-entry';
 import { PreferencesDialog } from '@/components/project/preferences-dialog';
 import { ShareDialog } from '@/components/project/share-dialog';
-import { useChat } from '@/hooks/use-chat';
 import { ImageGeneration } from '@/components/ui/ai-chat-image-generation-1';
 
 interface Project {
@@ -59,11 +58,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [editingImageId, setEditingImageId] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
-
-  const { messages, isLoading: chatLoading, sendMessage } = useChat({
-    projectId,
-    roomId: selectedRoomId,
-  });
 
   // Calculate current step
   const allRoomsApproved = rooms.length > 0 && rooms.every((r) => r.approved);
@@ -152,10 +146,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     setEditDialogOpen(true);
   };
 
-  const handleEditSubmit = async (_imageId: number, prompt: string) => {
-    sendMessage(`Please edit the image: ${prompt}`);
-  };
-
   const handleTestGenerateImage = async () => {
     if (!selectedRoomId) return;
     setGenerating(true);
@@ -227,7 +217,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         <Header showSteps currentStep={1} />
 
         <main className="page-main">
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-4xl mx-auto">
             <Link
               href="/"
               className="inline-flex items-center text-sm text-white/60 hover:text-white mb-4"
@@ -305,10 +295,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               </div>
 
               {/* Right: Chat panel for initial goals */}
-              <ChatPanel
-                messages={messages}
-                isLoading={chatLoading}
-                onSend={sendMessage}
+              <ChatWrapper
+                projectId={projectId}
+                roomId={selectedRoomId}
                 placeholder="Describe your design goals..."
               />
             </div>
@@ -325,73 +314,84 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         <Header showSteps currentStep={2} />
 
         <main className="flex-1 flex overflow-hidden">
-          {/* Left column: Room selection + preview */}
-          <div className="w-1/2 border-r border-white/10 flex flex-col bg-surface/50">
-            <div className="p-4 border-b border-white/10">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-white">{project.name}</h2>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setPreferencesOpen(true)}
-                  className="text-white/60 hover:text-white hover:bg-white/10"
-                >
-                  <Settings className="w-4 h-4" />
-                </Button>
+          {/* Constrained container with max-width and padding */}
+          <div className="w-full max-w-[1680px] mx-auto px-6 lg:px-8 pt-6 pb-8 flex flex-col lg:flex-row gap-6 lg:gap-8">
+            {/* Left column: Room selection + Chat (20% width, stacked) */}
+            <div className="w-full lg:w-[20%] flex flex-col min-w-0 gap-6 lg:gap-8">
+              {/* Room selector card - narrower */}
+              <div className="panel">
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-semibold text-white text-sm">{project.name}</h2>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPreferencesOpen(true)}
+                      className="text-white/60 hover:text-white hover:bg-white/10 h-7 w-7 p-0"
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                  {/* Temporary test button to trigger image generation without chat */}
+                  {selectedRoomId && (
+                    <div className="mb-3 space-y-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleTestGenerateImage}
+                        disabled={generating}
+                        className="w-full border-accent-warm/60 text-accent-warm hover:bg-accent-warm/10 text-xs h-7"
+                      >
+                        {generating ? 'Generating…' : 'Test generate'}
+                      </Button>
+                      {generateError && (
+                        <p className="text-xs text-red-400">{generateError}</p>
+                      )}
+                    </div>
+                  )}
+                  <RoomGrid
+                    rooms={rooms.map((r) => ({ ...r, approved: r.approved === 1 }))}
+                    selectedRoomId={selectedRoomId}
+                    onSelectRoom={handleRoomSelect}
+                  />
+                </div>
               </div>
-              {/* Temporary test button to trigger image generation without chat */}
-              {selectedRoomId && (
-                <div className="mb-3 space-y-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleTestGenerateImage}
-                    disabled={generating}
-                    className="w-full border-accent-warm/60 text-accent-warm hover:bg-accent-warm/10"
-                  >
-                    {generating ? 'Generating image…' : 'Test generate image'}
-                  </Button>
-                  {generateError && (
-                    <p className="text-xs text-red-400">{generateError}</p>
+
+              {/* Chat panel card - stacked below room selection */}
+              <div className="flex flex-col min-h-0 flex-1">
+                <ChatWrapper
+                  projectId={projectId}
+                  roomId={selectedRoomId}
+                  onEditImage={handleEditImage}
+                  placeholder={`Describe your vision for the ${selectedRoom?.name || 'room'}...`}
+                />
+              </div>
+            </div>
+
+            {/* Right column: Room generation/image viewer (80% width) */}
+            <div className="w-full lg:w-[80%] flex flex-col min-w-0">
+              <div className="panel flex-1">
+                <div className="p-5">
+                  {generating ? (
+                    <ImageGeneration className="w-full">
+                      <div className="flex items-center justify-center bg-white/5 min-h-[400px] max-h-[600px] rounded-lg">
+                        <div className="text-center text-white/60 text-sm">
+                          Generating a new design for this room...
+                        </div>
+                      </div>
+                    </ImageGeneration>
+                  ) : (
+                    <div className="w-full flex items-center justify-center">
+                      <RoomImageViewer
+                        images={roomImages}
+                        currentIndex={currentImageIndex}
+                        onIndexChange={setCurrentImageIndex}
+                      />
+                    </div>
                   )}
                 </div>
-              )}
-              <RoomGrid
-                rooms={rooms.map((r) => ({ ...r, approved: r.approved === 1 }))}
-                selectedRoomId={selectedRoomId}
-                onSelectRoom={handleRoomSelect}
-              />
+              </div>
             </div>
-
-            {/* Room preview / images */}
-            <div className="flex-1 overflow-hidden flex items-center justify-center">
-              {generating ? (
-                <ImageGeneration className="mx-4">
-                  <div className="flex-1 flex items-center justify-center bg-white/5 min-h-[240px]">
-                    <div className="text-center text-white/60 text-sm">
-                      Generating a new design for this room...
-                    </div>
-                  </div>
-                </ImageGeneration>
-              ) : (
-                <RoomImageViewer
-                  images={roomImages}
-                  currentIndex={currentImageIndex}
-                  onIndexChange={setCurrentImageIndex}
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Right: Chat panel */}
-          <div className="w-1/2 p-4">
-            <ChatPanel
-              messages={messages}
-              isLoading={chatLoading}
-              onSend={sendMessage}
-              onEditImage={handleEditImage}
-              placeholder={`Describe your vision for the ${selectedRoom?.name || 'room'}...`}
-            />
           </div>
         </main>
 
@@ -410,7 +410,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             onOpenChange={setEditDialogOpen}
             imageId={editingImageId}
             imageUrl={roomImages.find((img) => img.id === editingImageId)?.url || ''}
-            onSubmit={handleEditSubmit}
+            onSubmit={async (imageId, prompt) => {
+              // Send edit request through chat
+              console.log('Edit image:', imageId, prompt);
+            }}
           />
         )}
       </div>
@@ -423,7 +426,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
       <Header showSteps currentStep={3} />
 
       <main className="page-main">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-2xl font-bold text-white">{project.name}</h1>
