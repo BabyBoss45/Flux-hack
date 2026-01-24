@@ -42,7 +42,7 @@ export function ChatPanel({ title, placeholder }: ChatPanelProps) {
   };
 
   return (
-    <section className="panel flex flex-col flex-1 min-h-[420px]">
+    <section className="panel flex flex-col flex-1 min-h-[360px] max-h-[calc(100vh-96px)]">
       <div className="panel-header">
         <div>
           <p className="text-xs font-semibold tracking-wide uppercase text-white/60">

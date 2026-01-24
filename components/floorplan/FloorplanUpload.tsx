@@ -28,7 +28,7 @@ export function FloorplanUpload() {
   };
 
   return (
-    <section className="panel flex-1 min-h-[420px] flex flex-col">
+    <section className="panel flex-1 min-h-[360px] max-h-[calc(100vh-96px)] flex flex-col">
       <div className="panel-header">
         <div>
           <p className="text-xs font-semibold tracking-wide uppercase text-white/60">
@@ -44,7 +44,7 @@ export function FloorplanUpload() {
           onClick={onClickUpload}
           onDragOver={(e) => e.preventDefault()}
           onDrop={onDrop}
-          className="relative flex-1 min-h-[220px] rounded-xl border border-dashed border-white/20 bg-black/30 flex flex-col items-center justify-center cursor-pointer hover:border-accent/70 hover:bg-black/40 transition-colors overflow-hidden"
+          className="relative flex-1 min-h-[180px] rounded-xl border border-dashed border-white/20 bg-black/30 flex flex-col items-center justify-center cursor-pointer hover:border-accent/70 hover:bg-black/40 transition-colors overflow-hidden"
         >
           {previewUrl ? (
             <Image

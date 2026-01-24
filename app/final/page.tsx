@@ -1,6 +1,6 @@
 export default function FinalResultPage() {
   return (
-    <div className="panel flex-1 min-h-[70vh] flex flex-col">
+    <div className="panel flex-1 h-[calc(100vh-96px)] flex flex-col overflow-hidden">
       <div className="panel-header">
         <div>
           <p className="text-xs font-semibold tracking-wide uppercase text-white/60">
@@ -11,8 +11,8 @@ export default function FinalResultPage() {
           </p>
         </div>
       </div>
-      <div className="panel-body flex flex-col gap-6">
-        <div className="relative w-full aspect-[32/9] rounded-2xl border border-white/15 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 overflow-hidden">
+      <div className="panel-body flex flex-col gap-4 overflow-hidden">
+        <div className="relative w-full h-1/3 min-h-[120px] rounded-2xl border border-white/15 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 overflow-hidden">
           <div className="absolute inset-0 opacity-35 bg-[radial-gradient(circle_at_0_0,#6366f1,transparent),radial-gradient(circle_at_100%_0,#22c55e,transparent),radial-gradient(circle_at_50%_100%,#ec4899,transparent)]" />
           <div className="relative h-full flex flex-col items-center justify-center text-center space-y-3 px-8">
             <p className="text-base font-semibold text-white tracking-tight">
@@ -25,7 +25,7 @@ export default function FinalResultPage() {
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-white/75 items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-white/75 items-stretch flex-1">
           <div className="panel bg-white/5 border-white/10 shadow-sm p-4 space-y-2 h-full flex flex-col justify-between">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-white/60">
               Summary

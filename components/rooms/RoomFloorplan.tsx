@@ -16,7 +16,7 @@ const ROOMS: { id: RoomId; label: string; styleTag: string }[] = [
 
 export function RoomFloorplan({ selectedRoom, onSelectRoom }: RoomFloorplanProps) {
   return (
-    <section className="panel flex-1 min-h-[420px] flex flex-col relative">
+    <section className="panel flex-1 min-h-[360px] max-h-[calc(100vh-96px)] flex flex-col relative">
       <div className="panel-header">
         <div>
           <p className="text-xs font-semibold tracking-wide uppercase text-white/60">
@@ -27,8 +27,8 @@ export function RoomFloorplan({ selectedRoom, onSelectRoom }: RoomFloorplanProps
           </p>
         </div>
       </div>
-      <div className="panel-body flex flex-col gap-4">
-        <div className="relative flex-1 min-h-[240px] rounded-xl border border-white/15 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 overflow-hidden">
+      <div className="panel-body flex flex-col gap-3">
+        <div className="relative flex-1 min-h-[200px] rounded-xl border border-white/15 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 overflow-hidden">
           <div className="absolute inset-4 grid grid-cols-2 grid-rows-2 gap-3">
             {ROOMS.map((room) => {
               const isSelected = selectedRoom === room.id;
