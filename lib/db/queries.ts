@@ -14,6 +14,9 @@ export interface Project {
   name: string;
   floor_plan_url: string | null;
   global_preferences: string;
+  building_type: string | null;
+  architecture_style: string | null;
+  atmosphere: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -56,6 +59,25 @@ export interface Message {
 export interface SharedDesign {
   id: string;
   project_id: number;
+  created_at: string;
+}
+
+export interface ColorPalette {
+  id: number;
+  project_id: number;
+  hex: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface RoomMessage {
+  id: number;
+  project_id: number;
+  room_id: number;
+  role: string;
+  content: string;
+  tool_calls: string;
   created_at: string;
 }
 
@@ -252,7 +274,7 @@ export function updateRoomImageItems(id: number, detectedItems: string): void {
 // Message queries
 export function getMessagesByProjectId(projectId: number): Message[] {
   return queryAll<Message>(
-    'SELECT * FROM messages WHERE project_id = ? ORDER BY created_at ASC',
+    'SELECT * FROM messages WHERE project_id = ? AND room_id IS NULL ORDER BY created_at ASC',
     [projectId]
   );
 }
@@ -295,6 +317,102 @@ export function createSharedDesign(id: string, projectId: number): SharedDesign 
 
 export function deleteSharedDesign(id: string): void {
   execute('DELETE FROM shared_designs WHERE id = ?', [id]);
+}
+
+// Room message queries
+export function getRoomMessagesByRoomId(
+  projectId: number,
+  roomId: number
+): RoomMessage[] {
+  return queryAll<RoomMessage>(
+    'SELECT * FROM room_messages WHERE project_id = ? AND room_id = ? ORDER BY created_at ASC',
+    [projectId, roomId]
+  );
+}
+
+export function createRoomMessage(
+  projectId: number,
+  roomId: number,
+  role: string,
+  content: string,
+  toolCalls?: string
+): RoomMessage | undefined {
+  return executeReturning<RoomMessage>(
+    'INSERT INTO room_messages (project_id, room_id, role, content, tool_calls) VALUES (?, ?, ?, ?, ?) RETURNING *',
+    [projectId, roomId, role, content, toolCalls || '[]']
+  );
+}
+
+// Color palette queries
+export function getColorPaletteByProjectId(projectId: number): ColorPalette[] {
+  return queryAll<ColorPalette>(
+    'SELECT * FROM color_palette WHERE project_id = ? ORDER BY sort_order',
+    [projectId]
+  );
+}
+
+export function addColorToPalette(
+  projectId: number,
+  hex: string,
+  name: string,
+  sortOrder = 0
+): ColorPalette | undefined {
+  return executeReturning<ColorPalette>(
+    'INSERT INTO color_palette (project_id, hex, name, sort_order) VALUES (?, ?, ?, ?) RETURNING *',
+    [projectId, hex, name, sortOrder]
+  );
+}
+
+export function addColorsToPalette(
+  projectId: number,
+  colors: { hex: string; name: string; sort_order?: number }[]
+): void {
+  const db = require('./index').getDb();
+  const stmt = db.prepare(
+    'INSERT INTO color_palette (project_id, hex, name, sort_order) VALUES (?, ?, ?, ?)'
+  );
+  for (const color of colors) {
+    stmt.run(projectId, color.hex, color.name, color.sort_order ?? 0);
+  }
+}
+
+export function deleteColorFromPalette(colorId: number): void {
+  execute('DELETE FROM color_palette WHERE id = ?', [colorId]);
+}
+
+// Project preferences update
+export function updateProjectPreferences(
+  projectId: number,
+  data: {
+    building_type?: string;
+    architecture_style?: string;
+    atmosphere?: string;
+  }
+): void {
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (data.building_type !== undefined) {
+    updates.push('building_type = ?');
+    values.push(data.building_type);
+  }
+  if (data.architecture_style !== undefined) {
+    updates.push('architecture_style = ?');
+    values.push(data.architecture_style);
+  }
+  if (data.atmosphere !== undefined) {
+    updates.push('atmosphere = ?');
+    values.push(data.atmosphere);
+  }
+
+  if (updates.length > 0) {
+    updates.push('updated_at = datetime("now")');
+    values.push(projectId);
+    execute(
+      `UPDATE projects SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    );
+  }
 }
 
 // Helper to check if all rooms are approved

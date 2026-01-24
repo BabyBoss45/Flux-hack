@@ -1,7 +1,7 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { streamText, convertToModelMessages, stepCountIs } from 'ai';
 import { getSession } from '@/lib/auth/mock-auth';
-import { getProjectById, getRoomById, createMessage } from '@/lib/db/queries';
+import { getProjectById, getRoomById, createMessage, createRoomMessage } from '@/lib/db/queries';
 import { createAiTools } from '@/lib/ai/tools';
 import { getSystemPrompt } from '@/lib/ai/prompts';
 
@@ -68,7 +68,11 @@ export async function POST(request: Request) {
 
         if (content.trim()) {
           console.log('Saving new user message:', content.substring(0, 100));
-          createMessage(projectId, 'user', content, roomId);
+          if (roomId) {
+            createRoomMessage(projectId, roomId, 'user', content);
+          } else {
+            createMessage(projectId, 'user', content, undefined);
+          }
         } else {
           console.log('Skipping empty user message');
         }
@@ -142,13 +146,23 @@ export async function POST(request: Request) {
         // Only save if there's actual content
         if (text?.trim() || toolInvocations) {
           console.log('Saving assistant message to DB');
-          createMessage(
-            projectId,
-            'assistant',
-            text || '',
-            roomId,
-            toolInvocations ? JSON.stringify(toolInvocations) : undefined
-          );
+          if (roomId) {
+            createRoomMessage(
+              projectId,
+              roomId,
+              'assistant',
+              text || '',
+              toolInvocations ? JSON.stringify(toolInvocations) : undefined
+            );
+          } else {
+            createMessage(
+              projectId,
+              'assistant',
+              text || '',
+              undefined,
+              toolInvocations ? JSON.stringify(toolInvocations) : undefined
+            );
+          }
         }
       } catch (error) {
         console.error('Error saving message:', error);
