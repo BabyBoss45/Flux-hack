@@ -346,6 +346,18 @@ export function updateRoomImageItems(id: number, detectedItems: string): void {
   execute('UPDATE room_images SET detected_items = ? WHERE id = ?', [detectedItems, id]);
 }
 
+export function getRoomImageById(id: number): RoomImage | undefined {
+  return queryOne<RoomImage>(
+    'SELECT id, room_id, url, prompt, view_type, detected_items, is_final, created_at FROM room_images WHERE id = ?',
+    [id]
+  );
+}
+
+export function setImageAsFinal(imageId: number, roomId: number): void {
+  execute('UPDATE room_images SET is_final = 0 WHERE room_id = ?', [roomId]);
+  execute('UPDATE room_images SET is_final = 1 WHERE id = ? AND room_id = ?', [imageId, roomId]);
+}
+
 // Message queries
 export function getMessagesByProjectId(projectId: number): Message[] {
   return queryAll<Message>(
