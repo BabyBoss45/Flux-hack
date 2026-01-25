@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Download, RefreshCw, Share2 } from 'lucide-react';
+import { ArrowLeft, RefreshCw, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/header';
 import { RoomShoppingCard, type RoomAnalysis } from '@/components/finalize/room-shopping-card';
 import { ShoppingSummary, exportShoppingList } from '@/components/finalize/shopping-summary';
-import { MOCK_ROOMS_DATA, getMockProjectData } from '@/lib/mock-finalize-data';
+import { MOCK_ROOMS, getMockProjectData } from '@/lib/mock-finalize-data';
 
 interface RoomWithAnalysis {
   roomId: number;
@@ -19,31 +19,33 @@ interface RoomWithAnalysis {
 export default function DemoFinalizePage() {
   const mockProject = getMockProjectData();
   
-  // Initialize with mock data already loaded
+  // Initialize with idle state - will call real API
   const [roomsWithAnalysis, setRoomsWithAnalysis] = useState<RoomWithAnalysis[]>(
-    MOCK_ROOMS_DATA.map((mockRoom) => ({
-      roomId: mockRoom.roomId,
-      roomName: mockRoom.roomName,
-      imageUrl: mockRoom.imageUrl,
-      analysis: mockRoom.analysis,
+    MOCK_ROOMS.map((room) => ({
+      roomId: room.roomId,
+      roomName: room.roomName,
+      imageUrl: room.imageUrl,
+      analysis: { status: 'idle' as const },
     }))
   );
 
-  // Reset to show loading state for demo
+  // Reset all rooms to idle state
   const resetToIdle = () => {
     setRoomsWithAnalysis(
-      MOCK_ROOMS_DATA.map((mockRoom) => ({
-        roomId: mockRoom.roomId,
-        roomName: mockRoom.roomName,
-        imageUrl: mockRoom.imageUrl,
+      MOCK_ROOMS.map((room) => ({
+        roomId: room.roomId,
+        roomName: room.roomName,
+        imageUrl: room.imageUrl,
         analysis: { status: 'idle' as const },
       }))
     );
   };
 
-  // Simulate loading for a room
-  const simulateAnalysis = async (roomIndex: number) => {
-    // Set loading
+  // Call the real /analyze-and-shop API
+  const analyzeRoom = async (roomIndex: number) => {
+    const room = roomsWithAnalysis[roomIndex];
+    
+    // Set loading state
     setRoomsWithAnalysis((prev) => {
       const updated = [...prev];
       updated[roomIndex] = {
@@ -53,86 +55,133 @@ export default function DemoFinalizePage() {
       return updated;
     });
 
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // Set success with mock data
-    const mockData = MOCK_ROOMS_DATA[roomIndex];
-    setRoomsWithAnalysis((prev) => {
-      const updated = [...prev];
-      updated[roomIndex] = {
-        ...updated[roomIndex],
-        analysis: mockData.analysis,
-      };
-      return updated;
-    });
+    try {
+      // Fetch the image and convert to blob
+      const imageResponse = await fetch(room.imageUrl);
+      const imageBlob = await imageResponse.blob();
+      
+      // Create FormData with the image
+      const formData = new FormData();
+      formData.append('image', imageBlob, `${room.roomName.toLowerCase().replace(' ', '-')}.jpg`);
+      
+      // Call the analyze-and-shop API
+      const res = await fetch('/api/llm/analyze-and-shop', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      
+      if (data.status === 'success') {
+        setRoomsWithAnalysis((prev) => {
+          const updated = [...prev];
+          updated[roomIndex] = {
+            ...updated[roomIndex],
+            analysis: {
+              status: 'success',
+              object_names: data.object_names || [],
+              total_price: data.total_price || 'N/A',
+              objects: data.objects || [],
+              overall_style: data.overall_style || 'Unknown',
+              color_palette: data.color_palette || [],
+            },
+          };
+          return updated;
+        });
+      } else {
+        throw new Error(data.error || 'Analysis failed');
+      }
+    } catch (error) {
+      console.error('Analysis error:', error);
+      setRoomsWithAnalysis((prev) => {
+        const updated = [...prev];
+        updated[roomIndex] = {
+          ...updated[roomIndex],
+          analysis: {
+            status: 'error',
+            error: error instanceof Error ? error.message : 'Analysis failed',
+          },
+        };
+        return updated;
+      });
+    }
   };
 
-  // Export shopping list
-  const handleExport = () => {
+  // Export shopping list as PDF
+  const handleExport = async () => {
     const data = roomsWithAnalysis.map((r) => ({
       roomId: r.roomId,
       roomName: r.roomName,
+      imageUrl: r.imageUrl,
       analysis: r.analysis,
     }));
 
-    const text = exportShoppingList(data);
-
-    const blob = new Blob([text], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'mock-project-shopping-list.txt';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      const { generateShoppingListPDF } = await import('@/lib/pdf-generator');
+      await generateShoppingListPDF(data, mockProject.project.name);
+    } catch (error) {
+      console.error('Failed to generate PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    }
   };
 
   const analyzedRooms = roomsWithAnalysis.filter((r) => r.analysis.status === 'success').length;
 
   return (
-    <div className="page-shell">
+    <div className="min-h-screen bg-[#0a0a0a]">
       <Header showSteps currentStep={3} />
 
-      <main className="page-main">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          {/* Header */}
-          <div className="flex items-start justify-between mb-6">
-            <div>
+      <main className="min-h-[calc(100vh-64px)]">
+        <div className="w-full px-6 lg:px-12 py-8">
+          {/* Compact Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-6">
               <Link
                 href="/"
-                className="inline-flex items-center text-sm text-white/60 hover:text-white mb-2"
+                className="flex items-center justify-center w-10 h-10 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to home
+                <ArrowLeft className="w-4 h-4" />
               </Link>
-              <h1 className="text-2xl font-bold text-white">{mockProject.project.name}</h1>
-              <p className="text-white/60">
-                Demo: Finalize page with pre-generated mock data
-              </p>
-              <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-accent-warm/20 border border-accent-warm/30 text-xs text-accent-warm">
-                Using mock data - no API calls
+              <div>
+                <h1 className="text-2xl font-semibold text-white tracking-tight">Shop Your Design</h1>
+                <p className="text-sm text-white/50">Find matching furniture for your rooms</p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
               <Button
-                onClick={resetToIdle}
-                variant="outline"
-                className="border-white/20 text-white hover:bg-white/10"
+                onClick={() => {
+                  roomsWithAnalysis.forEach((_, index) => {
+                    if (roomsWithAnalysis[index].analysis.status === 'idle') {
+                      setTimeout(() => analyzeRoom(index), index * 500);
+                    }
+                  });
+                }}
+                className="bg-accent-warm hover:bg-accent-warm/90 text-black font-medium px-5"
+                disabled={roomsWithAnalysis.every(r => r.analysis.status !== 'idle')}
               >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Reset Demo
+                <ShoppingCart className="w-4 h-4 mr-2" />
+                Analyze All
+              </Button>
+              <Button
+                onClick={resetToIdle}
+                variant="ghost"
+                className="text-white/60 hover:text-white hover:bg-white/5"
+              >
+                <RefreshCw className="w-4 h-4" />
               </Button>
             </div>
           </div>
 
           {/* Main content */}
-          <div className="grid lg:grid-cols-4 gap-6">
-            {/* Room cards - 3 columns */}
-            <div className="lg:col-span-3">
-              <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid lg:grid-cols-[1fr_480px] gap-8">
+            {/* Room cards - main area */}
+            <div className="flex flex-col min-h-[calc(100vh-280px)]">
+              <div className="grid md:grid-cols-2 gap-5 content-start">
                 {roomsWithAnalysis.map((roomData, index) => (
                   <RoomShoppingCard
                     key={roomData.roomId}
@@ -140,15 +189,15 @@ export default function DemoFinalizePage() {
                     roomName={roomData.roomName}
                     imageUrl={roomData.imageUrl}
                     analysis={roomData.analysis}
-                    onAnalyze={() => simulateAnalysis(index)}
+                    onAnalyze={() => analyzeRoom(index)}
                   />
                 ))}
               </div>
             </div>
 
             {/* Summary sidebar - 1 column */}
-            <div className="lg:col-span-1">
-              <div className="sticky top-6">
+            <div className="lg:col-span-1 flex flex-col">
+              <div className="sticky top-6 flex-1">
                 <ShoppingSummary
                   rooms={roomsWithAnalysis.map((r) => ({
                     roomId: r.roomId,
@@ -158,17 +207,6 @@ export default function DemoFinalizePage() {
                   onShare={() => alert('Share dialog would open here')}
                   onExport={handleExport}
                 />
-
-                {/* Demo info */}
-                <div className="mt-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                  <p className="text-xs font-semibold text-blue-400 mb-2">Demo Info</p>
-                  <ul className="text-xs text-white/60 space-y-1">
-                    <li>• {analyzedRooms}/3 rooms analyzed</li>
-                    <li>• Click "Analyze & Shop" on idle rooms</li>
-                    <li>• Click "Reset Demo" to start over</li>
-                    <li>• Click product links to visit stores</li>
-                  </ul>
-                </div>
               </div>
             </div>
           </div>
