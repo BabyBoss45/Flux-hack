@@ -17,8 +17,10 @@ COPY public ./public
 COPY .next/standalone/ ./
 COPY .next/static ./.next/static
 
-# Create data directory for SQLite and uploads directory (after COPY)
-RUN mkdir -p /app/data /app/public/uploads/floor-plans && chown -R nextjs:nodejs /app/data /app/public/uploads
+# Create data directory for SQLite and fix uploads permissions (after COPY)
+RUN mkdir -p /app/data /app/public/uploads/floor-plans \
+    && chown -R nextjs:nodejs /app/data \
+    && chown -R nextjs:nodejs /app/public/uploads
 
 USER nextjs
 
