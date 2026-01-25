@@ -1,37 +1,26 @@
-# Stage 1: Dependencies
-FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
-WORKDIR /app
+# Production image using pre-built .next from local
+# Build locally first: npm run build
+# Then deploy to VPS and run docker compose up
 
-COPY package.json ./
-COPY package-lock.json ./
-RUN npm install
-
-# Stage 2: Build
-FROM node:20-alpine AS builder
-WORKDIR /app
-
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-
-# Build Next.js
-RUN npm run build
-
-# Stage 3: Production
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3001
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN groupadd --system --gid 1001 nodejs
+RUN useradd --system --uid 1001 --gid nodejs nextjs
 
-# Copy standalone output
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# Copy pre-built standalone output (Next.js preserves local path structure)
+COPY public ./public
+COPY .next/standalone/ ./
+COPY .next/static ./.next/static
+
+# Create data directory for SQLite and fix uploads permissions (after COPY)
+RUN mkdir -p /app/data /app/public/uploads/floor-plans \
+    && chown -R nextjs:nodejs /app/data \
+    && chown -R nextjs:nodejs /app/public/uploads
 
 USER nextjs
 

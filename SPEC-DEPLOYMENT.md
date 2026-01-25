@@ -148,7 +148,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build Next.js
+# Build Next.js with increased memory limit (prevents OOM on low-memory VPS)
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN npm run build
 
 # Stage 3: Production
@@ -386,6 +387,46 @@ sudo apt install certbot python3-certbot-nginx
 # Logout and login to apply docker group
 ```
 
+### Memory Requirements & Swap Setup
+
+Next.js builds are memory-intensive. For VPS with limited RAM (1-4GB), you **must** configure swap to prevent OOM (Out of Memory) kills during Docker builds.
+
+**Minimum requirements:**
+
+| VPS RAM | Recommended Swap | Total Memory |
+| ------- | ---------------- | ------------ |
+| 1GB     | 4GB              | 5GB          |
+| 2GB     | 4GB              | 6GB          |
+| 4GB     | 2-4GB            | 6-8GB        |
+
+**Setup swap on Ubuntu (Linode/DigitalOcean/etc):**
+
+```bash
+# Check current memory and swap
+free -h
+
+# Create 4GB swap file
+sudo fallocate -l 4G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+
+# Make permanent (survives reboot)
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+# Optimize swap usage for build workloads
+sudo sysctl vm.swappiness=60
+
+# Verify swap is active
+free -h
+```
+
+**Signs of OOM during build:**
+
+- Build process killed with `SIGKILL`
+- Build hangs for extended periods then fails
+- Error message: `npm error signal SIGKILL`
+
 ### Initial Deployment
 
 ```bash
@@ -402,7 +443,7 @@ sudo nano .env
 # Ensure output: 'standalone' is set
 
 # 4. Build and start containers
-sudo docker compose up -d --build
+npm run build && sudo docker compose up -d --build
 
 # 5. Configure Nginx
 sudo nano /etc/nginx/sites-available/interior
@@ -431,7 +472,7 @@ cd /opt/interior
 sudo git pull
 
 # Rebuild and restart containers
-sudo docker compose up -d --build
+npm run build && sudo docker compose up -d --build
 
 # View logs if needed
 sudo docker compose logs -f
@@ -571,6 +612,44 @@ sudo certbot renew --force-renewal
 
 # Check certificate status
 sudo certbot certificates
+```
+
+### Build fails with SIGKILL (OOM)
+
+If Docker build fails with `npm error signal SIGKILL` during `npm run build`:
+
+```bash
+# 1. Check if swap is configured
+free -h
+
+# 2. If no swap, add it (see "Memory Requirements & Swap Setup" above)
+sudo fallocate -l 4G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+# 3. Verify Dockerfile has NODE_OPTIONS set
+# Should include: ENV NODE_OPTIONS="--max-old-space-size=4096"
+
+# 4. Retry the build
+sudo docker compose build --no-cache
+
+# 5. If still failing, increase memory limit to 8GB
+# Edit Dockerfile: ENV NODE_OPTIONS="--max-old-space-size=8192"
+```
+
+**Alternative: Build locally and push image**
+
+If your VPS is too constrained, build on your local machine:
+
+```bash
+# Local machine (with more RAM)
+docker build -t yourusername/interior-web:latest .
+docker push yourusername/interior-web:latest
+
+# On VPS - modify docker-compose.yml to use pre-built image
+# Replace build: section with: image: yourusername/interior-web:latest
 ```
 
 ---

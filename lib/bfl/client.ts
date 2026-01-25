@@ -66,6 +66,7 @@ export interface EditImageParams {
   prompt: string;
   mask?: string; // Base64 encoded mask (optional for inpainting)
   strength?: number;
+  model?: string;
 }
 
 export interface BFLJobResponse {
