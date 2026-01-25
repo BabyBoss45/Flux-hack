@@ -10,7 +10,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { image, prompt, mask, strength, async: asyncMode } = await request.json();
+    const { image, prompt, async: asyncMode } = await request.json();
 
     if (!image) {
       return NextResponse.json({ error: 'Image is required' }, { status: 400 });
@@ -20,8 +20,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    // Start the edit job
-    const job = await editImage({ image, prompt, mask, strength });
+    // Start the edit job with image-to-image transformation
+    const job = await editImage({ image, prompt });
 
     // If async mode, return job ID for client polling
     if (asyncMode) {

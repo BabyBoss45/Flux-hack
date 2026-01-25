@@ -282,8 +282,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     setEditDialogOpen(true);
   };
 
-  const handleObjectSelect = (object: { id: string; label: string; category: string; bbox: [number, number, number, number] }) => {
-    setSelectedObject({ id: object.id, label: object.label });
+  const handleObjectSelect = (object: { id: string; label?: string; name?: string; category?: string; bbox?: [number, number, number, number] }) => {
+    const label = object.label || object.name || 'Object';
+    setSelectedObject({ id: object.id, label });
     
     // Auto-focus chat input and prepend object context
     // The chat placeholder will show "Editing [object]..." which guides the user

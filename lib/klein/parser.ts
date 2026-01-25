@@ -64,14 +64,15 @@ export async function parseUserIntent(
     throw new Error('Room ID is required');
   }
 
-  const availableObjectsList = availableObjects.map((obj) => obj.label).join(', ');
+  const availableObjectsList = availableObjects.map((obj) => obj.label || obj.name || 'unknown').join(', ');
   
   // If a specific object is selected, prioritize it in the context
   let contextText = userText;
   if (selectedObjectId && availableObjects.length > 0) {
     const selectedObj = availableObjects.find(obj => obj.id === selectedObjectId);
     if (selectedObj) {
-      contextText = `Editing ${selectedObj.label}: ${userText}`;
+      const objLabel = selectedObj.label || selectedObj.name || 'object';
+      contextText = `Editing ${objLabel}: ${userText}`;
     }
   }
 
@@ -93,10 +94,11 @@ export async function parseUserIntent(
     if (selectedObjectId && availableObjects.length > 0) {
       const selectedObj = availableObjects.find(obj => obj.id === selectedObjectId);
       if (selectedObj) {
+        const objLabel = selectedObj.label || selectedObj.name || 'object';
         parsed.intent = 'edit_objects';
         // Extract attributes from user text
         parsed.edits = [{
-          target: selectedObj.label,
+          target: objLabel,
           action: 'modify',
           attributes: {
             description: userText,
@@ -106,10 +108,20 @@ export async function parseUserIntent(
       }
     }
 
+    // Validate edits: filter out invalid ones with defensive null checks
     if (parsed.intent === 'edit_objects' && parsed.edits) {
-      const validEdits = parsed.edits.filter((edit) =>
-        availableObjects.some((obj) => obj.label.toLowerCase() === edit.target.toLowerCase())
-      );
+      const validEdits = parsed.edits.filter((edit) => {
+        // Defensive check for edit.target
+        if (!edit || !edit.target) {
+          console.warn('Skipping edit with missing target:', edit);
+          return false;
+        }
+        const targetLower = edit.target.toLowerCase();
+        return availableObjects.some((obj) => {
+          const label = obj.label || obj.name || '';
+          return label.toLowerCase() === targetLower;
+        });
+      });
       parsed.edits = validEdits.length > 0 ? validEdits : undefined;
     }
 
@@ -119,9 +131,10 @@ export async function parseUserIntent(
         parsed.intent = 'generate_room';
       } else {
         // If objects exist but edit failed, default to first object
+        const firstObjLabel = availableObjects[0].label || availableObjects[0].name || 'object';
         parsed.intent = 'edit_objects';
         parsed.edits = [{
-          target: availableObjects[0].label,
+          target: firstObjLabel,
           action: 'modify',
           attributes: {
             description: userText,
@@ -134,15 +147,13 @@ export async function parseUserIntent(
     return parsed;
   } catch (error) {
     console.error('Parser error:', error);
-    return {
-      intent: 'edit_objects',
-      roomId,
-      constraints: {
-        preserve_layout: true,
-        preserve_lighting: true,
-        preserve_camera: true,
-      },
-    };
+    console.error('Input text:', userText);
+    console.error('Available objects:', availableObjects);
+
+    // Throw error instead of returning malformed edit_objects without edits array
+    throw new Error(
+      `Failed to parse instruction: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 

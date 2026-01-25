@@ -1,3 +1,5 @@
+import { extractImageDimensions } from './image-utils';
+
 const RUNWARE_API_BASE = 'https://api.runware.ai/v1';
 
 export interface GenerateImageParams {
@@ -11,10 +13,8 @@ export interface GenerateImageParams {
 }
 
 export interface EditImageParams {
-  image: string; // Base64 encoded image
-  prompt: string;
-  mask?: string; // Base64 encoded mask (optional for inpainting)
-  strength?: number;
+  image: string; // Base64 encoded image (PNG, JPG, WEBP)
+  prompt: string; // Natural language edit instruction
 }
 
 export interface BFLJobResponse {
@@ -109,9 +109,13 @@ export async function generateImage(params: GenerateImageParams): Promise<BFLJob
 }
 
 export async function editImage(params: EditImageParams): Promise<BFLJobResponse> {
-  // For now, route edits through the same imageInference endpoint using the
-  // existing image as part of the prompt. This can be replaced with a proper
-  // Runware inpainting workflow if desired.
+  // Extract dimensions from input image, fallback to 1024x768
+  const dimensions = extractImageDimensions(params.image) || {
+    width: 1024,
+    height: 768,
+  };
+
+  // Build Runware image-to-image request with seedImage for structure preservation
   const body = {
     taskType: 'imageInference',
     taskUUID:
@@ -119,8 +123,11 @@ export async function editImage(params: EditImageParams): Promise<BFLJobResponse
         ? crypto.randomUUID()
         : Math.random().toString(36).slice(2),
     positivePrompt: params.prompt,
-    // You could extend this to use image-to-image once wired up to Runware's tools.
-    model: params.model || 'runware:400@4',
+    seedImage: params.image, // Base64 source image for structure-preserving edit
+    model: 'google:4@2', // Nano Banana 2 for structure-aware edits
+    strength: 0.3, // Conservative value preserves layout, allows material changes
+    width: dimensions.width,
+    height: dimensions.height,
     numberResults: 1,
     outputType: 'URL',
     outputFormat: 'jpg',

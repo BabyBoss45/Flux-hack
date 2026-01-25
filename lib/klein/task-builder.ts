@@ -1,5 +1,19 @@
 import type { ParsedInstruction, KleinTask, RoomImage, DetectedObject } from './types';
 
+/**
+ * Helper to get object label with fallback to name
+ */
+function getObjectLabel(obj: DetectedObject): string {
+  return obj.label || obj.name || '';
+}
+
+/**
+ * Helper to check if object has valid bbox for mask-based editing
+ */
+function hasValidBbox(obj: DetectedObject): boolean {
+  return Boolean(obj.bbox && Array.isArray(obj.bbox) && obj.bbox.length === 4);
+}
+
 export async function buildKleinTasks(
   instruction: ParsedInstruction,
   previousImage: RoomImage | null
@@ -20,9 +34,13 @@ export async function buildKleinTasks(
       throw new Error('Cannot edit: no objects detected in current image');
     }
 
+    // DECISION: Check if all edits have valid bbox for mask-based inpainting
+    const editsWithBbox: Array<{ edit: NonNullable<ParsedInstruction['edits']>[0]; targetObject: DetectedObject }> = [];
+    const editsWithoutBbox: Array<{ edit: NonNullable<ParsedInstruction['edits']>[0]; targetObject: DetectedObject | undefined }> = [];
+
     for (const edit of instruction.edits) {
       const targetObject = previousImage.objects.find(
-        (obj) => obj.label.toLowerCase() === edit.target.toLowerCase()
+        (obj) => getObjectLabel(obj).toLowerCase() === edit.target.toLowerCase()
       );
 
       if (!targetObject) {
@@ -30,26 +48,44 @@ export async function buildKleinTasks(
         continue;
       }
 
-      // GUARANTEE 2: Mask must be < ~30% of image area
-      const [x1, y1, x2, y2] = targetObject.bbox;
-      const maskArea = (x2 - x1) * (y2 - y1);
-      if (maskArea > 0.3) {
-        throw new Error(`Mask area (${(maskArea * 100).toFixed(1)}%) exceeds 30% limit. Edit rejected to prevent drift.`);
+      if (hasValidBbox(targetObject)) {
+        editsWithBbox.push({ edit, targetObject });
+      } else {
+        editsWithoutBbox.push({ edit, targetObject });
       }
+    }
 
-      // GUARANTEE 3: Always reuse currentImageUrl (sequential chaining)
-      const prompt = buildEditPrompt(edit, instruction, targetObject);
-      const mask = await createMaskFromBbox(targetObject.bbox, previousImage.imageUrl);
+    // Route 1: If all edits have valid bbox, use mask-based inpainting
+    if (editsWithBbox.length > 0 && editsWithoutBbox.length === 0) {
+      for (const { edit, targetObject } of editsWithBbox) {
+        // GUARANTEE 2: Mask must be < ~30% of image area
+        const [x1, y1, x2, y2] = targetObject.bbox!;
+        const maskArea = (x2 - x1) * (y2 - y1);
+        if (maskArea > 0.3) {
+          throw new Error(`Mask area (${(maskArea * 100).toFixed(1)}%) exceeds 30% limit. Edit rejected to prevent drift.`);
+        }
 
-      // GUARANTEE 4: Never call imageGeneration for edits
-      tasks.push({
-        taskType: 'imageInpainting',
-        model: 'flux-2.0-klein',
-        prompt,
-        image: previousImage.imageUrl, // Always use latest image
-        mask,
-        imageSize: '1024x1024',
-      });
+        // GUARANTEE 3: Always reuse currentImageUrl (sequential chaining)
+        const prompt = buildEditPrompt(edit, instruction, targetObject);
+        const mask = await createMaskFromBbox(targetObject.bbox!, previousImage.imageUrl);
+
+        // GUARANTEE 4: Never call imageGeneration for edits
+        tasks.push({
+          taskType: 'imageInpainting',
+          model: 'flux-2.0-klein',
+          prompt,
+          image: previousImage.imageUrl,
+          mask,
+          imageSize: '1024x1024',
+        });
+      }
+    }
+    // Route 2: Fallback to seedImage-based editing when bbox is missing
+    else if (editsWithoutBbox.length > 0 || editsWithBbox.length > 0) {
+      console.log('Using seedImage fallback: some objects missing valid bbox');
+      const allEdits = [...editsWithBbox, ...editsWithoutBbox];
+      const seedImageTask = buildSeedImageTask(allEdits.map(e => e.edit), instruction, previousImage);
+      tasks.push(seedImageTask);
     }
   }
 
@@ -58,6 +94,40 @@ export async function buildKleinTasks(
   }
 
   return tasks;
+}
+
+/**
+ * Build a seedImage-based edit task when bbox is missing.
+ * Uses the source image as a reference and applies edits via prompt.
+ */
+function buildSeedImageTask(
+  edits: NonNullable<ParsedInstruction['edits']>,
+  instruction: ParsedInstruction,
+  previousImage: RoomImage
+): KleinTask {
+  const editPrompt = edits
+    .map(e => {
+      const attrs = Object.values(e.attributes).filter(Boolean).join(', ');
+      return `${e.target}: ${attrs}`;
+    })
+    .join('; ');
+
+  const constraintText = [
+    instruction.constraints.preserve_layout ? 'maintain layout' : '',
+    instruction.constraints.preserve_lighting ? 'preserve lighting' : '',
+    instruction.constraints.preserve_camera ? 'keep camera angle' : '',
+  ].filter(Boolean).join(', ');
+
+  const prompt = `Edit the room image. Changes: ${editPrompt}. ${constraintText ? `Constraints: ${constraintText}.` : ''} Photorealistic quality, preserve all unchanged elements.`;
+
+  // Use imageInpainting with full image (no mask) for structure preservation
+  return {
+    taskType: 'imageInpainting',
+    model: 'flux-2.0-klein',
+    prompt,
+    image: previousImage.imageUrl,
+    imageSize: '1024x1024',
+  };
 }
 
 function buildGenerationPrompt(instruction: ParsedInstruction): string {
@@ -78,8 +148,8 @@ function buildGenerationPrompt(instruction: ParsedInstruction): string {
 }
 
 function buildEditPrompt(
-  edit: ParsedInstruction['edits'][0],
-  instruction: ParsedInstruction,
+  edit: NonNullable<ParsedInstruction['edits']>[0],
+  _instruction: ParsedInstruction,
   targetObject?: DetectedObject
 ): string {
   // Extract user request from attributes
@@ -94,7 +164,7 @@ function buildEditPrompt(
     })
     .join(', ');
 
-  const objectType = targetObject?.label || edit.target;
+  const objectType = (targetObject?.label || targetObject?.name) || edit.target;
   const objectCategory = targetObject?.category || 'furniture';
 
   // CRITICAL: Aggressively restrictive prompt pattern

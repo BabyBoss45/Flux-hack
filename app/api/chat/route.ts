@@ -85,12 +85,13 @@ export async function POST(request: Request) {
           // Trigger klein image generation if roomId exists
           // Safety guard: do not generate images on empty input
           if (roomId && userContent.trim().length > 0) {
+            // Declare outside try block so they're accessible in catch for error logging
+            let availableObjects: DetectedObject[] = [];
+            let previousImage: RoomImage | null = null;
+
             try {
               const existingImages = getRoomImagesByRoomId(Number(roomId));
               const latestImage = existingImages[0] || null;
-
-              let availableObjects: DetectedObject[] = [];
-              let previousImage: RoomImage | null = null;
 
               if (latestImage) {
                 // Parse existing detected_items
@@ -130,7 +131,15 @@ export async function POST(request: Request) {
               }
 
               parsedInstruction = await parseUserIntent(userContent, availableObjects, String(roomId), selectedObjectId);
-              console.log('Parsed instruction:', JSON.stringify(parsedInstruction, null, 2));
+
+              // Enhanced logging for debugging
+              console.log('Klein parse result:', {
+                intent: parsedInstruction.intent,
+                editsCount: parsedInstruction.edits?.length ?? 0,
+                editTargets: parsedInstruction.edits?.map(e => e.target),
+                availableLabels: availableObjects.map(o => o.label || o.name),
+                roomId: parsedInstruction.roomId,
+              });
 
               const tasks = await buildKleinTasks(parsedInstruction, previousImage);
               console.log('Built klein tasks:', tasks.length);
@@ -176,7 +185,22 @@ export async function POST(request: Request) {
                 };
               }
             } catch (error) {
-              console.error('Klein generation error in chat:', error);
+              // Enhanced error logging with context
+              console.error('Klein generation error:', {
+                error: error instanceof Error ? error.message : error,
+                stack: error instanceof Error ? error.stack : undefined,
+                instruction: parsedInstruction,
+                previousImageUrl: previousImage?.imageUrl,
+                availableObjects: availableObjects.map((o: DetectedObject) => ({
+                  id: o.id,
+                  label: o.label || o.name,
+                  hasBbox: Boolean(o.bbox),
+                })),
+                userContent: userContent.substring(0, 200),
+              });
+
+              // Note: We don't throw here - we let the AI respond naturally
+              // The AI can explain what went wrong based on the context
             }
           }
         } else {

@@ -5,17 +5,19 @@ export type RoomImage = {
 
 export type DetectedObject = {
   id: string;
-  label: string;
+  label?: string;  // Primary field
+  name?: string;   // Fallback for backwards compatibility (database stores 'name')
   category: 'furniture' | 'surface' | 'lighting' | 'architectural';
-  bbox: [number, number, number, number];
+  bbox?: [number, number, number, number];  // Optional - may be missing for legacy data
 };
 
 export type ObjectRecognitionResponse = {
   objects: Array<{
     id: string;
-    label: string;
+    label?: string;
+    name?: string;
     category: 'furniture' | 'surface' | 'lighting' | 'architectural';
-    bbox: [number, number, number, number];
+    bbox?: [number, number, number, number];
   }>;
 };
 
