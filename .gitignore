@@ -46,3 +46,4 @@ sqlite.db-shm
 sqlite.db-wal
 sqlite.db
 sqlite.db-wal
+*.db-wal
