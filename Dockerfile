@@ -14,7 +14,7 @@ RUN adduser --system --uid 1001 nextjs
 
 # Copy pre-built standalone output (Next.js preserves local path structure)
 COPY public ./public
-COPY .next/standalone/personal/Flux-hack/ ./
+COPY .next/standalone/ ./
 COPY .next/static ./.next/static
 
 USER nextjs
