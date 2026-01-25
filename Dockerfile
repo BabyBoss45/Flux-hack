@@ -1,6 +1,6 @@
 # Production image using pre-built .next from local
 # Build locally first: npm run build
-# Then deploy: copy .next/, public/ to VPS and run docker compose up
+# Then deploy to VPS and run docker compose up
 
 FROM node:20-alpine AS runner
 WORKDIR /app
@@ -12,9 +12,9 @@ ENV PORT=3001
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy pre-built standalone output (built locally)
+# Copy pre-built standalone output (Next.js preserves local path structure)
 COPY public ./public
-COPY .next/standalone ./
+COPY .next/standalone/personal/Flux-hack/ ./
 COPY .next/static ./.next/static
 
 USER nextjs
