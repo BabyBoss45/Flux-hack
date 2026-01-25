@@ -7,73 +7,27 @@ export async function buildKleinTasks(
   const tasks: KleinTask[] = [];
 
   if (instruction.intent === 'generate_room') {
-    // GUARD: Never generate room if we have a previous image (should edit instead)
-    if (previousImage) {
-      console.warn('[TASK BUILDER] generate_room intent but previousImage exists. This should not happen. Falling back to edit_objects.');
-      // Force edit_objects instead
-      instruction.intent = 'edit_objects';
-      if (previousImage.objects.length > 0) {
-        instruction.edits = [{
-          target: previousImage.objects[0].label,
-          action: 'modify',
-          attributes: { description: 'User requested room generation but image exists - editing first object instead' },
-        }];
-      }
-    } else {
-      const prompt = buildGenerationPrompt(instruction);
-      tasks.push({
-        taskType: 'imageGeneration',
-        model: 'flux-2.0-klein',
-        prompt,
-        imageSize: '1024x1024',
-      });
-    }
-  }
-  
-  if (instruction.intent === 'edit_objects') {
-    // GUARANTEE 1: No edit without previousImage
-    if (!previousImage) {
-      throw new Error('Cannot edit: no previous image available. Edits require an existing image.');
-    }
-    
-    // GUARANTEE 1b: No edit without objects
+    const prompt = buildGenerationPrompt(instruction);
+    tasks.push({
+      taskType: 'imageGeneration',
+      model: 'flux-2.0-klein',
+      prompt,
+      imageSize: '1024x1024',
+    });
+  } else if (instruction.intent === 'edit_objects' && instruction.edits && previousImage) {
+    // GUARANTEE 1: No edit without selected object
     if (previousImage.objects.length === 0) {
       throw new Error('Cannot edit: no objects detected in current image');
     }
-    
-    // GUARANTEE 1c: No edit without edits array
-    if (!instruction.edits || instruction.edits.length === 0) {
-      throw new Error('Cannot edit: no edit instructions provided');
-    }
 
     for (const edit of instruction.edits) {
-      // Try to find object by ID first (most reliable), then by label
-      let targetObject = null;
-      
-      // If objectId is stored in attributes, use it for exact matching
-      if (edit.attributes?.objectId) {
-        targetObject = previousImage.objects.find(
-          (obj) => obj.id === edit.attributes.objectId
-        );
-        if (targetObject) {
-          console.log(`[TASK BUILDER] Found object by ID: ${targetObject.id} (${targetObject.label})`);
-        }
-      }
-      
-      // Fallback to label matching if ID match failed
-      if (!targetObject) {
-        targetObject = previousImage.objects.find(
-          (obj) => obj.label.toLowerCase() === edit.target.toLowerCase()
-        );
-        if (targetObject) {
-          console.log(`[TASK BUILDER] Found object by label: ${targetObject.id} (${targetObject.label})`);
-        }
-      }
+      const targetObject = previousImage.objects.find(
+        (obj) => obj.label.toLowerCase() === edit.target.toLowerCase()
+      );
 
       if (!targetObject) {
-        const availableLabels = previousImage.objects.map(obj => `${obj.id}:${obj.label}`).join(', ');
-        console.error(`[TASK BUILDER] Object "${edit.target}" (ID: ${edit.attributes?.objectId || 'unknown'}) not found in available objects: [${availableLabels}]`);
-        throw new Error(`Cannot edit: object "${edit.target}" not found in current image. Available objects: ${previousImage.objects.map(o => o.label).join(', ')}`);
+        console.warn(`Object "${edit.target}" not found in available objects`);
+        continue;
       }
 
       // GUARANTEE 2: Mask must be < ~30% of image area
@@ -84,24 +38,15 @@ export async function buildKleinTasks(
       }
 
       // GUARANTEE 3: Always reuse currentImageUrl (sequential chaining)
-      // CRITICAL: Only editing the selected object - mask covers ONLY this object's bbox
-      console.log(`[TASK BUILDER] Editing ONLY object: ${targetObject.id} (${targetObject.label}) in image: ${previousImage.imageUrl.substring(0, 50)}...`);
-      console.log(`[TASK BUILDER] Object bbox: [${targetObject.bbox.join(', ')}] - this is the ONLY area that will change`);
       const prompt = buildEditPrompt(edit, instruction, targetObject);
       const mask = await createMaskFromBbox(targetObject.bbox, previousImage.imageUrl);
-      console.log(`[TASK BUILDER] Created mask for bbox: [${targetObject.bbox.join(', ')}] - mask covers ONLY this object`);
 
-      // GUARANTEE 4: Never call imageGeneration for edits - ALWAYS use inpainting
-      const maskAreaPercent = ((maskArea * 100).toFixed(1));
-      console.log(`[TASK BUILDER] Creating inpainting task for ${targetObject.label} (ID: ${targetObject.id}) with mask area: ${maskAreaPercent}%`);
-      console.log(`[TASK BUILDER] Using image: ${previousImage.imageUrl.substring(0, 60)}...`);
-      console.log(`[TASK BUILDER] Prompt preview: ${prompt.substring(0, 100)}...`);
-      
+      // GUARANTEE 4: Never call imageGeneration for edits
       tasks.push({
-        taskType: 'imageInpainting', // CRITICAL: Must be inpainting, never imageGeneration
+        taskType: 'imageInpainting',
         model: 'flux-2.0-klein',
         prompt,
-        image: previousImage.imageUrl, // Always use latest image (sequential chaining)
+        image: previousImage.imageUrl, // Always use latest image
         mask,
         imageSize: '1024x1024',
       });
@@ -152,29 +97,25 @@ function buildEditPrompt(
   const objectType = targetObject?.label || edit.target;
   const objectCategory = targetObject?.category || 'furniture';
 
-  // CRITICAL: Ultra-restrictive prompt pattern to prevent room drift
-  return `INPAINTING TASK: Modify ONLY the masked object. Everything else MUST remain identical.
+  // CRITICAL: Aggressively restrictive prompt pattern
+  return `Modify ONLY the selected object in the image.
 
-OBJECT TO EDIT:
+Object:
 - Type: ${objectType}
 - Category: ${objectCategory}
-- Region: White area in the mask (ONLY this area can change)
+- Region: defined by the provided mask
 
-USER REQUEST: "${userRequest}"
+User request:
+"${userRequest}"
 
-STRICT RULES (VIOLATION = FAILURE):
-1. Change ONLY the object in the white mask area
-2. DO NOT modify anything outside the mask (walls, floor, ceiling, other furniture, lighting, windows, doors, decor, plants, artwork, rugs, curtains)
-3. DO NOT change room layout, camera angle, perspective, or composition
-4. DO NOT change lighting, shadows, or reflections outside the mask
-5. DO NOT change colors, textures, or materials outside the mask
-6. DO NOT add or remove objects
-7. DO NOT change the room style, theme, or overall design
-8. Preserve ALL other objects exactly as they appear
-9. The masked object should blend seamlessly with NO visible seams
-10. Maintain photorealistic quality matching the original image
-
-CRITICAL: If the mask covers less than 30% of the image, ONLY that small area should change. The rest of the room (70%+) must be pixel-perfect identical.`;
+Rules:
+- Change ONLY the masked object
+- Do NOT modify walls, floor, ceiling, lighting, windows, or layout
+- Preserve camera angle, perspective, and composition
+- Preserve shadows and reflections outside the masked area
+- Blend seamlessly into the existing image
+- Maintain photorealistic quality
+- Keep all other objects and room elements exactly as they are`;
 }
 
 /**

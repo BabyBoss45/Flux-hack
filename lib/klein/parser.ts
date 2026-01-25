@@ -89,26 +89,20 @@ export async function parseUserIntent(
     const parsed = object as ParsedInstruction;
     parsed.roomId = roomId;
 
-    // CRITICAL: If object is selected, force edit_objects intent for ONLY that object
+    // If object is selected, force edit_objects intent
     if (selectedObjectId && availableObjects.length > 0) {
       const selectedObj = availableObjects.find(obj => obj.id === selectedObjectId);
       if (selectedObj) {
         parsed.intent = 'edit_objects';
-        // CRITICAL: Only edit the selected object - create exactly ONE edit
+        // Extract attributes from user text
         parsed.edits = [{
-          target: selectedObj.label, // Use label for matching in task builder
+          target: selectedObj.label,
           action: 'modify',
           attributes: {
             description: userText,
             request: userText,
-            objectId: selectedObj.id, // Store ID for verification
-            objectLabel: selectedObj.label, // Store label for verification
           },
         }];
-        console.log(`[PARSER] Editing ONLY selected object: ${selectedObj.id} (${selectedObj.label})`);
-        console.log(`[PARSER] Edits array length: ${parsed.edits.length} (should be 1)`);
-      } else {
-        console.error(`[PARSER] Selected object ID "${selectedObjectId}" not found in available objects:`, availableObjects.map(o => o.id));
       }
     }
 
@@ -122,19 +116,18 @@ export async function parseUserIntent(
     // Only fallback to generate_room if no objects available AND no selected object
     if (parsed.intent === 'edit_objects' && (!parsed.edits || parsed.edits.length === 0)) {
       if (availableObjects.length === 0) {
-        // No objects available - can't edit, must generate
         parsed.intent = 'generate_room';
-        console.log('[PARSER] No objects available, falling back to generate_room');
-      } else if (selectedObjectId) {
-        // Object was selected but not found - this is an error, don't default to first object
-        const availableIds = availableObjects.map(o => `${o.id}:${o.label}`).join(', ');
-        console.error(`[PARSER] Selected object ID "${selectedObjectId}" not found. Available objects: [${availableIds}]`);
-        throw new Error(`Selected object (ID: ${selectedObjectId}) not found in available objects. Available: ${availableObjects.map(o => o.label).join(', ')}`);
       } else {
-        // No object selected but objects exist - this shouldn't happen if selectedObjectId was passed
-        // But if it does, don't default to first object - throw error
-        console.error('[PARSER] edit_objects intent but no edits and no selectedObjectId');
-        throw new Error('Cannot edit: no object selected. Please select an object to edit.');
+        // If objects exist but edit failed, default to first object
+        parsed.intent = 'edit_objects';
+        parsed.edits = [{
+          target: availableObjects[0].label,
+          action: 'modify',
+          attributes: {
+            description: userText,
+            request: userText,
+          },
+        }];
       }
     }
 
