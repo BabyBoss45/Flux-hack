@@ -226,7 +226,7 @@ export default function FinalizePage({ params }: { params: Promise<{ id: string 
       <Header showSteps currentStep={3} />
 
       <main className="page-main">
-        <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="max-w-[1500px] mx-auto px-6 py-6">
           {/* Header */}
           <div className="flex items-start justify-between mb-6">
             <div>

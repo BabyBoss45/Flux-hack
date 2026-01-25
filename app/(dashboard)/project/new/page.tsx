@@ -32,6 +32,12 @@ export default function NewProjectPage() {
         body: JSON.stringify({ name: name.trim() }),
       });
 
+      if (res.status === 401) {
+        // Session expired or invalid - clear cookie and redirect to login
+        window.location.href = '/api/auth/logout?redirect=/login';
+        return;
+      }
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Failed to create project');

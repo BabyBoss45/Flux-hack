@@ -14,7 +14,7 @@ export default async function DashboardPage() {
       <Header userName={session.user.name} />
 
       <main className="page-main">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-[1500px] mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-2xl font-bold text-white">Your Projects</h2>

@@ -10,3 +10,16 @@ export async function POST() {
     return NextResponse.json({ error: 'Logout failed' }, { status: 500 });
   }
 }
+
+// GET handler for redirect-based logout (clears cookie and redirects to login)
+export async function GET(request: Request) {
+  try {
+    await logout();
+    const url = new URL(request.url);
+    const redirect = url.searchParams.get('redirect') || '/login';
+    return NextResponse.redirect(new URL(redirect, request.url));
+  } catch (error) {
+    console.error('Logout error:', error);
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+}

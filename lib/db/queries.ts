@@ -123,7 +123,15 @@ export function createProject(
 
 export function updateProject(
   id: number,
-  data: Partial<{ name: string; floor_plan_url: string; annotated_floor_plan_url: string; global_preferences: string }>
+  data: Partial<{
+    name: string;
+    floor_plan_url: string;
+    annotated_floor_plan_url: string;
+    global_preferences: string;
+    building_type: string;
+    architecture_style: string;
+    atmosphere: string;
+  }>
 ): void {
   const updates: string[] = [];
   const params: unknown[] = [];
@@ -143,6 +151,18 @@ export function updateProject(
   if (data.global_preferences !== undefined) {
     updates.push('global_preferences = ?');
     params.push(data.global_preferences);
+  }
+  if (data.building_type !== undefined) {
+    updates.push('building_type = ?');
+    params.push(data.building_type);
+  }
+  if (data.architecture_style !== undefined) {
+    updates.push('architecture_style = ?');
+    params.push(data.architecture_style);
+  }
+  if (data.atmosphere !== undefined) {
+    updates.push('atmosphere = ?');
+    params.push(data.atmosphere);
   }
 
   if (updates.length > 0) {

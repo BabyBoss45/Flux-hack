@@ -54,6 +54,8 @@ export async function getSession(): Promise<Session | null> {
 
   const user = getUserById(userId);
   if (!user) {
+    // User doesn't exist (possibly database was reset)
+    // Return null - the logout API will clear the cookie when called
     return null;
   }
 

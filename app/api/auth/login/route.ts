@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { login } from '@/lib/auth/mock-auth';
+import { login, logout } from '@/lib/auth/mock-auth';
 
 export async function POST(request: Request) {
   try {
@@ -9,6 +9,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
+    // Clear any existing invalid session first
+    await logout();
+    
     const user = await login(email);
 
     return NextResponse.json({ user });

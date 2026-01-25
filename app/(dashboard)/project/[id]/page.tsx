@@ -17,6 +17,15 @@ import { FloorPlanToggle } from '@/components/floorplan/floor-plan-toggle';
 import { PreferencesDialog } from '@/components/project/preferences-dialog';
 import { ShareDialog } from '@/components/project/share-dialog';
 import { ImageGeneration } from '@/components/ui/ai-chat-image-generation-1';
+import { DesignBriefWizard } from '@/components/wizard/design-brief-wizard';
+import type { WizardSummaryData, WizardState } from '@/lib/wizard/types';
+import {
+  BUILDING_TYPE_OPTIONS,
+  ARCHITECTURE_STYLE_OPTIONS,
+  ATMOSPHERE_OPTIONS,
+  CONSTRAINT_OPTIONS,
+  getOptionLabel,
+} from '@/lib/wizard/types';
 
 interface Project {
   id: number;
@@ -24,6 +33,9 @@ interface Project {
   floor_plan_url: string | null;
   annotated_floor_plan_url: string | null;
   global_preferences: string;
+  building_type: string | null;
+  architecture_style: string | null;
+  atmosphere: string | null;
 }
 
 interface Room {
@@ -62,6 +74,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [isGenerating, setIsGenerating] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [selectedObject, setSelectedObject] = useState<{ id: string; label: string } | null>(null);
+  const [wizardCompleted, setWizardCompleted] = useState(false);
+  const [wizardData, setWizardData] = useState<WizardSummaryData | null>(null);
+  const [wizardProgress, setWizardProgress] = useState<WizardState | null>(null);
 
   // Calculate current step
   const allRoomsApproved = rooms.length > 0 && rooms.every((r) => r.approved);
@@ -77,6 +92,11 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     async function fetchProject() {
       try {
         const res = await fetch(`/api/projects/${projectId}`);
+        if (res.status === 401) {
+          // Session expired or invalid - clear cookie and redirect to login
+          window.location.href = '/api/auth/logout?redirect=/login';
+          return;
+        }
         if (!res.ok) {
           router.push('/');
           return;
@@ -87,6 +107,18 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
         if (data.rooms?.length > 0 && !selectedRoomId) {
           setSelectedRoomId(data.rooms[0].id);
+        }
+
+        // Check if wizard is already completed
+        if (data.project?.global_preferences) {
+          try {
+            const prefs = JSON.parse(data.project.global_preferences);
+            if (prefs.wizardCompleted) {
+              setWizardCompleted(true);
+            }
+          } catch {
+            // Ignore parse errors
+          }
         }
       } catch (error) {
         console.error('Failed to fetch project:', error);
@@ -289,6 +321,68 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     // The chat placeholder will show "Editing [object]..." which guides the user
   };
 
+  // Handle wizard completion
+  const handleWizardComplete = async (data: WizardSummaryData) => {
+    setWizardData(data);
+    setWizardCompleted(true);
+    
+    // Update local project state with new preferences
+    const newPrefs = {
+      buildingType: data.buildingType,
+      architectureStyle: data.architectureStyle,
+      atmosphere: data.atmosphere,
+      constraints: data.constraints,
+      customNotes: data.customNotes,
+      wizardCompleted: true,
+    };
+    
+    if (project) {
+      setProject({ ...project, global_preferences: JSON.stringify(newPrefs) });
+    }
+    
+    // If rooms exist (floor plan uploaded), generate images and move to step 2
+    if (rooms.length > 0) {
+      setIsGenerating(true);
+      
+      // Generate an image for each room
+      const generatePromises = rooms.map(async (room) => {
+        try {
+          // Build description based on room type and project preferences
+          const style = data.architectureStyle || 'modern';
+          const atmosphere = data.atmosphere || 'bright and airy';
+          const description = `A ${atmosphere} ${style} ${room.type || room.name}, interior design visualization, professional photography, high quality`;
+          
+          const res = await fetch(`/api/rooms/${room.id}/generate-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              description,
+              viewType: 'perspective',
+              style: data.architectureStyle,
+            }),
+          });
+          
+          if (!res.ok) {
+            console.error(`Failed to generate image for room ${room.name}`);
+          }
+          
+          return res.ok;
+        } catch (error) {
+          console.error(`Error generating image for room ${room.name}:`, error);
+          return false;
+        }
+      });
+      
+      // Wait for all generations to complete
+      await Promise.all(generatePromises);
+      
+      setIsGenerating(false);
+      
+      // Refresh to show the design step with generated images
+      router.refresh();
+    }
+  };
+
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
   const preferences = project?.global_preferences
     ? JSON.parse(project.global_preferences)
@@ -302,18 +396,32 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     );
   }
 
+  // Show generating overlay when creating initial room images
+  if (isGenerating && wizardCompleted) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+        <div className="animate-spin w-12 h-12 border-3 border-accent-warm border-t-transparent rounded-full" />
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-white mb-2">Generating Room Designs</h2>
+          <p className="text-white/60">Creating visualizations for {rooms.length} room{rooms.length !== 1 ? 's' : ''}...</p>
+          <p className="text-white/40 text-sm mt-2">This may take a minute</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!project) {
     return null;
   }
 
-  // Step 1: Upload / Setup
+  // Step 1: Combined Upload + Design Brief Wizard
   if (currentStep === 1) {
     return (
       <div className="page-shell">
         <Header showSteps currentStep={1} />
 
         <main className="page-main">
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-[1500px] mx-auto">
             <Link
               href="/"
               className="inline-flex items-center text-sm text-white/60 hover:text-white mb-4"
@@ -324,32 +432,37 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
             <h1 className="text-2xl font-bold text-white mb-6">{project.name}</h1>
 
-            <div className="grid lg:grid-cols-2 gap-6">
-              {/* Left: Upload panel */}
-              <div className="panel">
-                <div className="panel-header">
-                  <h2 className="text-lg font-semibold text-white">Add Your Space</h2>
+            <div className="grid lg:grid-cols-2 gap-6 h-[780px]">
+              {/* Left column: Upload + Design Brief Status */}
+              <div className="flex flex-col gap-6 h-full">
+                {/* Floor Plan Upload Widget */}
+                <div className="panel flex-1 flex flex-col overflow-hidden">
+                  <div className="panel-header flex-shrink-0">
+                    <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <Upload className="w-5 h-5 text-accent-warm" />
+                      Add Your Space
+                    </h2>
                 </div>
-                <div className="panel-body">
+                  <div className="panel-body flex-1 overflow-y-auto">
                   {!setupMode ? (
                     <div className="grid gap-4">
                       <button
                         onClick={() => setSetupMode('upload')}
-                        className="p-6 border border-white/20 rounded-lg hover:border-accent-warm hover:bg-accent-warm/10 transition-colors text-left"
+                          className="p-5 border border-white/20 rounded-lg hover:border-accent-warm hover:bg-accent-warm/10 transition-colors text-left"
                       >
-                        <Upload className="w-8 h-8 mb-4 text-accent-warm" />
-                        <h3 className="font-semibold mb-2 text-white">Upload Floor Plan</h3>
+                          <Upload className="w-7 h-7 mb-3 text-accent-warm" />
+                          <h3 className="font-semibold mb-1 text-white">Upload Floor Plan</h3>
                         <p className="text-sm text-white/60">
-                          Upload a PDF or image of your floor plan and we&apos;ll detect the rooms
+                            Upload a PDF or image and we&apos;ll detect the rooms
                         </p>
                       </button>
 
                       <button
                         onClick={() => setSetupMode('manual')}
-                        className="p-6 border border-white/20 rounded-lg hover:border-accent-warm hover:bg-accent-warm/10 transition-colors text-left"
+                          className="p-5 border border-white/20 rounded-lg hover:border-accent-warm hover:bg-accent-warm/10 transition-colors text-left"
                       >
-                        <Edit3 className="w-8 h-8 mb-4 text-accent-warm" />
-                        <h3 className="font-semibold mb-2 text-white">Enter Manually</h3>
+                          <Edit3 className="w-7 h-7 mb-3 text-accent-warm" />
+                          <h3 className="font-semibold mb-1 text-white">Enter Manually</h3>
                         <p className="text-sm text-white/60">
                           Manually enter the rooms in your space
                         </p>
@@ -390,13 +503,173 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 </div>
               </div>
 
-              {/* Right: Chat panel for initial goals */}
-              <ChatWrapper
+                {/* Completion Status Widget - Live Updates */}
+                <div className="panel flex-shrink-0">
+                  <div className="panel-header flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <span className="text-lg">✨</span>
+                      Completion
+                    </h2>
+                    {/* Circular progress tracker */}
+                    {(() => {
+                      const completedSteps = [
+                        wizardProgress?.buildingType,
+                        wizardProgress?.architectureStyle,
+                        wizardProgress?.atmosphere,
+                        wizardProgress?.currentStep === 'complete',
+                      ].filter(Boolean).length;
+                      const totalSteps = 4;
+                      const progress = completedSteps / totalSteps;
+                      const circumference = 2 * Math.PI * 14;
+                      const strokeDashoffset = circumference * (1 - progress);
+                      
+                      return (
+                        <div className="relative w-10 h-10 flex items-center justify-center">
+                          <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+                            {/* Background circle */}
+                            <circle
+                              cx="18"
+                              cy="18"
+                              r="14"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              className="text-white/10"
+                            />
+                            {/* Progress circle */}
+                            <circle
+                              cx="18"
+                              cy="18"
+                              r="14"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              className="text-accent-warm transition-all duration-500 ease-out"
+                              strokeDasharray={circumference}
+                              strokeDashoffset={strokeDashoffset}
+                            />
+                          </svg>
+                          <span className="absolute text-xs font-semibold text-white">
+                            {completedSteps}/{totalSteps}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div className="panel-body space-y-4">
+                    {/* Building Type */}
+                    <div className="flex items-start gap-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        wizardProgress?.buildingType 
+                          ? 'bg-accent-warm text-black' 
+                          : 'bg-white/10 text-white/40'
+                      }`}>
+                        {wizardProgress?.buildingType ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <span className="text-xs font-medium">1</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white/80">Building type</p>
+                        {wizardProgress?.buildingType ? (
+                          <p className="text-sm text-accent-warm truncate">
+                            {getOptionLabel(BUILDING_TYPE_OPTIONS, wizardProgress.buildingType)}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-white/40">Not set</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Architecture Style */}
+                    <div className="flex items-start gap-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        wizardProgress?.architectureStyle 
+                          ? 'bg-accent-warm text-black' 
+                          : 'bg-white/10 text-white/40'
+                      }`}>
+                        {wizardProgress?.architectureStyle ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <span className="text-xs font-medium">2</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white/80">Style</p>
+                        {wizardProgress?.architectureStyle ? (
+                          <p className="text-sm text-accent-warm truncate">
+                            {getOptionLabel(ARCHITECTURE_STYLE_OPTIONS, wizardProgress.architectureStyle)}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-white/40">Not set</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Atmosphere */}
+                    <div className="flex items-start gap-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        wizardProgress?.atmosphere
+                          ? 'bg-accent-warm text-black' 
+                          : 'bg-white/10 text-white/40'
+                      }`}>
+                        {wizardProgress?.atmosphere ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <span className="text-xs font-medium">3</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white/80">Atmosphere</p>
+                        {wizardProgress?.atmosphere ? (
+                          <p className="text-sm text-accent-warm truncate">
+                            {getOptionLabel(ATMOSPHERE_OPTIONS, wizardProgress.atmosphere)}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-white/40">Not set</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Preferences */}
+                    <div className="flex items-start gap-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        wizardProgress?.currentStep === 'complete'
+                          ? 'bg-accent-warm text-black' 
+                          : 'bg-white/10 text-white/40'
+                      }`}>
+                        {wizardProgress?.currentStep === 'complete' ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <span className="text-xs font-medium">4</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white/80">Preferences</p>
+                        {wizardProgress?.constraints && wizardProgress.constraints.length > 0 ? (
+                          <p className="text-sm text-accent-warm truncate">
+                            {wizardProgress.constraints.map(c => 
+                              getOptionLabel(CONSTRAINT_OPTIONS, c)
+                            ).join(', ')}
+                          </p>
+                        ) : wizardProgress?.currentStep === 'complete' ? (
+                          <p className="text-sm text-accent-warm">No constraints</p>
+                        ) : (
+                          <p className="text-xs text-white/40">Not set</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Design Brief Wizard Chat */}
+              <DesignBriefWizard
                 projectId={projectId}
-                roomId={selectedRoomId}
-                selectedObjectId={selectedObject?.id || null}
-                onImageGenerated={handleImageGenerated}
-                placeholder="Describe your design goals..."
+                onComplete={handleWizardComplete}
+                onStateChange={setWizardProgress}
               />
             </div>
           </div>
@@ -413,7 +686,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
         <main className="flex-1 flex overflow-hidden">
           {/* Constrained container with max-width and padding */}
-          <div className="w-full max-w-[1680px] mx-auto px-6 lg:px-8 pt-6 pb-8 flex flex-col lg:flex-row gap-6 lg:gap-8">
+          <div className="w-full max-w-[1500px] mx-auto px-6 lg:px-8 pt-6 pb-8 flex flex-col lg:flex-row gap-6 lg:gap-8">
             {/* Left column: Room selection + Chat (20% width, stacked) */}
             <div className="w-full lg:w-[20%] flex flex-col min-w-0 gap-6 lg:gap-8">
               {/* Room selector card - narrower */}
@@ -542,7 +815,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
       <Header showSteps currentStep={3} />
 
       <main className="page-main">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-[1500px] mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-2xl font-bold text-white">{project.name}</h1>
@@ -650,5 +923,33 @@ function RoomCard({
         <p className="text-sm text-white/50">{room.type}</p>
       </div>
     </button>
+  );
+}
+
+// Step indicator for wizard intro
+function StepIndicator({
+  number,
+  label,
+  active = false,
+}: {
+  number: number;
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+          active
+            ? 'bg-accent-warm text-black'
+            : 'bg-white/10 text-white/40'
+        }`}
+      >
+        {number}
+      </div>
+      <span className={active ? 'text-white font-medium' : 'text-white/50'}>
+        {label}
+      </span>
+    </div>
   );
 }
