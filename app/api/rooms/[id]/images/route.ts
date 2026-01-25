@@ -37,6 +37,7 @@ export async function GET(
         prompt: img.prompt,
         view_type: img.view_type,
         detected_items: img.detected_items ?? '[]',
+        is_final: img.is_final ?? 0,
         created_at: img.created_at,
       };
       

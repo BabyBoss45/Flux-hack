@@ -44,6 +44,7 @@ export interface RoomImage {
   prompt: string;
   view_type: string;
   detected_items: string;
+  is_final: number;
   created_at: string;
 }
 
@@ -255,7 +256,7 @@ export function deleteRoom(id: number): void {
 export function getRoomImagesByRoomId(roomId: number): RoomImage[] {
   // Explicitly select all columns to ensure detected_items is included
   const images = queryAll<RoomImage>(
-    'SELECT id, room_id, url, prompt, view_type, detected_items, created_at FROM room_images WHERE room_id = ? ORDER BY created_at DESC',
+    'SELECT id, room_id, url, prompt, view_type, detected_items, is_final, created_at FROM room_images WHERE room_id = ? ORDER BY created_at DESC',
     [roomId]
   );
   
@@ -317,7 +318,7 @@ export function createRoomImage(
   
   // Get the last inserted row
   const result = queryOne<RoomImage>(
-    'SELECT id, room_id, url, prompt, view_type, detected_items, created_at FROM room_images WHERE id = last_insert_rowid()'
+    'SELECT id, room_id, url, prompt, view_type, detected_items, is_final, created_at FROM room_images WHERE id = last_insert_rowid()'
   );
   
   // Debug: Log what was returned
@@ -343,6 +344,20 @@ export function createRoomImage(
 
 export function updateRoomImageItems(id: number, detectedItems: string): void {
   execute('UPDATE room_images SET detected_items = ? WHERE id = ?', [detectedItems, id]);
+}
+
+export function getRoomImageById(id: number): RoomImage | undefined {
+  return queryOne<RoomImage>(
+    'SELECT id, room_id, url, prompt, view_type, detected_items, is_final, created_at FROM room_images WHERE id = ?',
+    [id]
+  );
+}
+
+export function setImageAsFinal(imageId: number, roomId: number): void {
+  // Clear any existing final image for this room
+  execute('UPDATE room_images SET is_final = 0 WHERE room_id = ?', [roomId]);
+  // Mark the specified image as final
+  execute('UPDATE room_images SET is_final = 1 WHERE id = ?', [imageId]);
 }
 
 // Message queries

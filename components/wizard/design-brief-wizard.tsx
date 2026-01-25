@@ -258,10 +258,13 @@ export function DesignBriefWizard({
       currentStep: 'complete',
     }));
 
-    // Save global preferences as JSON
+    // Save ALL global preferences as JSON (including buildingType, architectureStyle, atmosphere)
     const globalPreferences = {
+      buildingType: state.buildingType,
+      architectureStyle: state.architectureStyle,
+      atmosphere: state.atmosphere,
       constraints: selectedValues,
-      custom_notes: customNotes,
+      customNotes: customNotes,
       wizardCompleted: true,
     };
     await saveToProject({ global_preferences: JSON.stringify(globalPreferences) });

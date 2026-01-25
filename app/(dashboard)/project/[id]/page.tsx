@@ -41,6 +41,7 @@ interface RoomImage {
   prompt: string;
   view_type: string;
   detected_items: string;
+  is_final: number;
   created_at: string;
 }
 
@@ -102,7 +103,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     fetchProject();
   }, [projectId, router]);
 
-  // Fetch room images when room changes
+  // Fetch room images when room changes - auto-generate if none exist
   useEffect(() => {
     if (!selectedRoomId) return;
 
@@ -111,29 +112,14 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         const res = await fetch(`/api/rooms/${selectedRoomId}/images`);
         if (res.ok) {
           const data = await res.json();
+          const images = data.images || [];
           
-          // Debug: Log what frontend receives
-          console.log('=== FRONTEND RECEIVED IMAGES ===');
-          if (data.images) {
-            data.images.forEach((img: any, index: number) => {
-              console.log(`Frontend Image ${index}:`, {
-                id: img.id,
-                url: img.url,
-                detected_items: img.detected_items,
-                detected_items_type: typeof img.detected_items,
-                detected_items_length: img.detected_items?.length,
-                detected_items_is_null: img.detected_items === null,
-                detected_items_is_undefined: img.detected_items === undefined,
-                detected_items_is_empty: img.detected_items === '',
-                all_keys: Object.keys(img),
-                full_object: img,
-              });
-            });
-          }
-          
-          setRoomImages(data.images || []);
-          if (data.images?.length > 0) {
+          setRoomImages(images);
+          if (images.length > 0) {
             setCurrentImageIndex(0);
+          } else if (selectedRoomId) {
+            // No images yet - auto-generate based on user brief
+            autoGenerateForRoom(selectedRoomId);
           }
         }
       } catch (error) {
@@ -143,6 +129,70 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
     fetchRoomImages();
   }, [selectedRoomId]);
+
+  // Auto-generate image for a room using user's design brief
+  const autoGenerateForRoom = async (roomId: number) => {
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) return;
+    
+    // Skip utility rooms
+    const utilityTypes = ['closet', 'storage', 'utility', 'laundry', 'garage', 'hallway', 'corridor'];
+    if (utilityTypes.some(t => room.type.toLowerCase().includes(t))) {
+      console.log('[AutoGen] Skipping utility room:', room.name);
+      return;
+    }
+    
+    // Check if already generating
+    if (isGenerating) return;
+    
+    setIsGenerating(true);
+    console.log('[AutoGen] Auto-generating image for:', room.name);
+    
+    // Build prompt from user preferences
+    const prefs = project?.global_preferences ? JSON.parse(project.global_preferences) : {};
+    const style = prefs.architectureStyle || 'modern';
+    const atmosphere = prefs.atmosphere || 'elegant';
+    const buildingType = prefs.buildingType || 'apartment';
+    const constraintsText = prefs.constraints?.join(', ') || '';
+    const customNotes = prefs.customNotes || '';
+    
+    const prompt = `A beautiful ${style} ${room.type} in a ${buildingType}. ${atmosphere} atmosphere with carefully chosen furniture and decor. ${constraintsText ? `Design considerations: ${constraintsText}.` : ''} ${customNotes ? customNotes : ''} Professional interior design photography, photorealistic, high quality, detailed textures, natural lighting.`;
+    
+    try {
+      const res = await fetch(`/api/rooms/${roomId}/generate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: prompt,
+          viewType: 'perspective',
+        }),
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        console.log('[AutoGen] Image generated for:', room.name);
+        
+        if (data.imageUrl) {
+          // Update images immediately
+          const newImage: RoomImage = {
+            id: Date.now(),
+            url: data.imageUrl,
+            prompt: prompt,
+            view_type: 'perspective',
+            detected_items: '[]',
+            is_final: 0,
+            created_at: new Date().toISOString(),
+          };
+          setRoomImages([newImage]);
+          setCurrentImageIndex(0);
+        }
+      }
+    } catch (err) {
+      console.error('[AutoGen] Error generating image:', err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   // REQUIREMENT 1: Handle image generation from chat - IMMEDIATE state update
   const handleImageGenerated = async (imageUrl: string, detectedObjects: any[]) => {
@@ -158,6 +208,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
       prompt: 'Generated image',
       view_type: 'perspective',
       detected_items: detectedItemsJson,
+      is_final: 0,
       created_at: new Date().toISOString(),
     };
     
@@ -602,25 +653,51 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   // Step 2: Design
   if (currentStep === 2) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
         <Header showSteps currentStep={2} />
 
         <main className="flex-1 flex overflow-hidden">
-          {/* Full width container */}
-          <div className="w-full max-w-[1920px] mx-auto px-4 lg:px-8 py-4 flex gap-4 lg:gap-6 h-full">
-            {/* Left column: Room selection + Brief + Chat (fixed width) */}
-            <div className="w-[280px] flex-shrink-0 flex flex-col gap-4 overflow-hidden">
-              {/* Room selector card */}
-              <div className="panel p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="font-semibold text-white text-sm truncate">{project.name}</h2>
+          {/* Full width 3-column layout */}
+          <div className="w-full max-w-[1920px] mx-auto px-4 lg:px-6 py-4 flex gap-4 h-full">
+            
+            {/* Left sidebar: Rooms + Brief + Floor Plan */}
+            <div className="w-[200px] flex-shrink-0 flex flex-col gap-3 overflow-hidden">
+              {/* Progress indicator */}
+              <div className="bg-[#0d0d0d] border border-white/[0.08] rounded-xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] text-white/50 font-medium">PROGRESS</span>
+                  <span className="text-[10px] text-white/70 font-medium">
+                    {rooms.filter(r => r.approved === 1).length}/{rooms.length} saved
+                  </span>
+                </div>
+                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all duration-300"
+                    style={{ width: `${rooms.length > 0 ? (rooms.filter(r => r.approved === 1).length / rooms.length) * 100 : 0}%` }}
+                  />
+                </div>
+                {rooms.length > 0 && rooms.every(r => r.approved === 1) && (
+                  <Button
+                    onClick={() => router.push(`/project/${projectId}/finalize`)}
+                    className="w-full mt-3 bg-green-600 hover:bg-green-500 text-white text-xs font-medium py-2 rounded-lg"
+                  >
+                    <Check className="w-3.5 h-3.5 mr-1.5" />
+                    Go to Finalize
+                  </Button>
+                )}
+              </div>
+
+              {/* Room selector */}
+              <div className="bg-[#0d0d0d] border border-white/[0.08] rounded-xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="font-medium text-white text-xs truncate">{project.name}</h2>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setPreferencesOpen(true)}
-                    className="text-white/60 hover:text-white hover:bg-white/10 h-7 w-7 p-0 flex-shrink-0"
+                    className="text-white/50 hover:text-white hover:bg-white/10 h-6 w-6 p-0"
                   >
-                    <Settings className="w-3.5 h-3.5" />
+                    <Settings className="w-3 h-3" />
                   </Button>
                 </div>
                 <RoomGrid
@@ -630,123 +707,205 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 />
               </div>
 
-              {/* Collapsible Design Brief */}
-              <div className="panel overflow-hidden">
+              {/* Design Brief - collapsible */}
+              <div className="bg-[#0d0d0d] border border-white/[0.08] rounded-xl overflow-hidden">
                 <button
                   onClick={() => setBriefExpanded(!briefExpanded)}
-                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-[rgba(0,255,157,0.03)] transition-colors"
+                  className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#00ff9d]" />
-                    <span className="text-sm font-medium text-white">Design Brief</span>
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-xs font-medium text-white">Brief</span>
                   </div>
                   {briefExpanded ? (
-                    <ChevronDown className="w-4 h-4 text-white/40" />
+                    <ChevronDown className="w-3.5 h-3.5 text-white/40" />
                   ) : (
-                    <ChevronRight className="w-4 h-4 text-white/40" />
+                    <ChevronRight className="w-3.5 h-3.5 text-white/40" />
                   )}
                 </button>
                 {briefExpanded && (
-                  <div className="px-4 pb-4 space-y-2 border-t border-[rgba(0,255,157,0.1)] pt-3">
+                  <div className="px-3 pb-3 space-y-1.5 border-t border-white/[0.06] pt-2">
                     {preferences.architectureStyle && (
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="text-white/40">Style:</span>
-                        <span className="text-white/80">{preferences.architectureStyle}</span>
-                      </div>
+                      <div className="text-[10px]"><span className="text-white/40">Style:</span> <span className="text-white/70">{preferences.architectureStyle}</span></div>
                     )}
                     {preferences.atmosphere && (
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="text-white/40">Mood:</span>
-                        <span className="text-white/80">{preferences.atmosphere}</span>
-                      </div>
+                      <div className="text-[10px]"><span className="text-white/40">Mood:</span> <span className="text-white/70">{preferences.atmosphere}</span></div>
                     )}
                     {preferences.buildingType && (
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="text-white/40">Type:</span>
-                        <span className="text-white/80">{preferences.buildingType}</span>
-                      </div>
+                      <div className="text-[10px]"><span className="text-white/40">Type:</span> <span className="text-white/70">{preferences.buildingType}</span></div>
                     )}
                     {preferences.constraints?.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
+                      <div className="flex flex-wrap gap-1 mt-1.5">
                         {preferences.constraints.map((c: string) => (
-                          <span key={c} className="px-2 py-0.5 bg-white/5 rounded text-[10px] text-white/60">
-                            {c}
-                          </span>
+                          <span key={c} className="px-1.5 py-0.5 bg-white/5 rounded text-[9px] text-white/50">{c}</span>
                         ))}
                       </div>
-                    )}
-                    {!preferences.architectureStyle && (
-                      <p className="text-xs text-white/40 italic">No preferences set</p>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* Floor plan viewer - collapsible */}
+              {/* Floor plan */}
               {project.floor_plan_url && (
-                <div className="panel p-4">
-                  <h3 className="font-medium text-white text-xs mb-3 text-white/60">Floor Plan</h3>
+                <div className="bg-[#0d0d0d] border border-white/[0.08] rounded-xl p-3">
+                  <h3 className="text-[10px] font-medium text-white/50 mb-2">FLOOR PLAN</h3>
                   <FloorPlanToggle
                     floorPlanUrl={project.floor_plan_url}
                     annotatedFloorPlanUrl={project.annotated_floor_plan_url}
                   />
                 </div>
               )}
+            </div>
 
-              {/* Chat panel - takes remaining space */}
-              <div className="flex-1 min-h-0 panel overflow-hidden flex flex-col">
-                <ChatWrapper
-                  projectId={projectId}
-                  roomId={selectedRoomId}
-                  selectedObjectId={selectedObject?.id || null}
-                  onEditImage={handleEditImage}
-                  onLoadingChange={setIsGenerating}
-                  onImageGenerated={handleImageGenerated}
-                  placeholder={
-                    selectedObject
-                      ? `Editing ${selectedObject.label}...`
-                      : `Describe your vision for the ${selectedRoom?.name || 'room'}...`
-                  }
-                />
+            {/* Center: Image viewer */}
+            <div className="flex-1 min-w-0 flex flex-col">
+              <div className="bg-[#0d0d0d] border border-white/[0.08] rounded-xl flex-1 flex flex-col overflow-hidden">
+                {/* Image header */}
+                <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between bg-[#0a0a0a]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center">
+                      <ImageIcon className="w-4 h-4 text-amber-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white text-sm">{selectedRoom?.name || 'Select a room'}</h3>
+                      <p className="text-[10px] text-white/40">{selectedRoom?.type || 'Room design'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {roomImages.length > 0 && (
+                      <span className="text-xs text-white/40 bg-white/5 px-2 py-1 rounded">
+                        v{currentImageIndex + 1}/{roomImages.length}
+                      </span>
+                    )}
+                    {roomImages.length > 0 && selectedRoom && (
+                      selectedRoom.approved === 1 ? (
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 text-green-400 text-xs font-medium rounded-lg">
+                          <Check className="w-3.5 h-3.5" />
+                          Saved
+                        </span>
+                      ) : (
+                        <Button
+                          onClick={async () => {
+                            try {
+                              await fetch(`/api/rooms/${selectedRoom.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ approved: true }),
+                              });
+                              // Update local state
+                              setRooms(rooms.map(r => 
+                                r.id === selectedRoom.id ? { ...r, approved: 1 } : r
+                              ));
+                              // Check if all rooms are now approved
+                              const updatedRooms = rooms.map(r => 
+                                r.id === selectedRoom.id ? { ...r, approved: 1 } : r
+                              );
+                              if (updatedRooms.every(r => r.approved === 1)) {
+                                router.push(`/project/${projectId}/finalize`);
+                              }
+                            } catch (err) {
+                              console.error('Failed to save room:', err);
+                            }
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-medium rounded-lg transition-colors"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          Save Final
+                        </Button>
+                      )
+                    )}
+                  </div>
+                </div>
+                
+                {/* Image area */}
+                <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+                  {roomImages.length > 0 ? (
+                    <div className="w-full h-full flex items-center justify-center relative">
+                      {isImageLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 rounded-lg backdrop-blur-sm">
+                          <div className="text-center text-white/70 text-sm">Loading...</div>
+                        </div>
+                      )}
+                      <RoomImageViewer
+                        images={roomImages}
+                        currentIndex={currentImageIndex}
+                        onIndexChange={setCurrentImageIndex}
+                        onObjectSelect={handleObjectSelect}
+                        selectedObjectId={selectedObject?.id || null}
+                        onImageLoad={() => setIsImageLoading(false)}
+                      />
+                    </div>
+                  ) : isGenerating ? (
+                    <ImageGeneration className="w-full h-full max-w-[900px]">
+                      <div className="flex flex-col items-center justify-center bg-gradient-to-br from-amber-500/5 to-orange-500/5 rounded-xl w-full aspect-[4/3] max-h-full border border-amber-500/10">
+                        <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mb-4 animate-pulse">
+                          <Sparkles className="w-6 h-6 text-amber-400" />
+                        </div>
+                        <p className="text-white/60 text-sm">Generating design for {selectedRoom?.name}...</p>
+                        <p className="text-white/30 text-xs mt-1">This may take 10-30 seconds</p>
+                      </div>
+                    </ImageGeneration>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center bg-white/[0.02] rounded-xl w-full aspect-[4/3] max-w-[700px] max-h-full border border-dashed border-white/10">
+                      <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-4">
+                        <ImageIcon className="w-8 h-8 text-white/20" />
+                      </div>
+                      <p className="text-white/50 text-sm font-medium mb-1">No design yet</p>
+                      <p className="text-white/30 text-xs">Use the chat to describe your vision →</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Right column: Room generation/image viewer (takes remaining space) */}
-            <div className="flex-1 min-w-0 flex flex-col">
-              <div className="panel flex-1 flex items-center justify-center p-4 overflow-hidden">
-                {roomImages.length > 0 ? (
-                  <div className="w-full h-full flex items-center justify-center relative">
-                    {isImageLoading && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10 rounded-lg">
-                        <div className="text-center text-white/60 text-sm">Loading image...</div>
-                      </div>
-                    )}
-                    <RoomImageViewer
-                      images={roomImages}
-                      currentIndex={currentImageIndex}
-                      onIndexChange={setCurrentImageIndex}
-                      onObjectSelect={handleObjectSelect}
-                      selectedObjectId={selectedObject?.id || null}
-                      onImageLoad={() => setIsImageLoading(false)}
-                    />
-                  </div>
-                ) : isGenerating ? (
-                  <ImageGeneration className="w-full h-full max-w-[1024px]">
-                    <div className="flex items-center justify-center bg-white/5 rounded-xl w-full aspect-square max-h-full">
-                      <div className="text-center text-white/60 text-sm">
-                        Generating design for {selectedRoom?.name || 'this room'}...
-                      </div>
+            {/* Right sidebar: Chat for this room */}
+            <div className="w-[380px] flex-shrink-0 flex flex-col overflow-hidden">
+              <div className="bg-[#0d0d0d] border border-white/[0.08] rounded-xl flex-1 flex flex-col overflow-hidden">
+                {/* Chat header */}
+                <div className="px-4 py-3 border-b border-white/[0.06] bg-[#0a0a0a]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/20 to-purple-500/20 flex items-center justify-center">
+                      <Sparkles className="w-4 h-4 text-violet-400" />
                     </div>
-                  </ImageGeneration>
-                ) : (
-                  <div className="flex flex-col items-center justify-center bg-[rgba(0,255,157,0.02)] rounded-xl w-full aspect-square max-w-[800px] max-h-full border border-dashed border-[rgba(0,255,157,0.15)]">
-                    <div className="w-16 h-16 rounded-xl bg-[rgba(0,255,157,0.05)] border border-[rgba(0,255,157,0.1)] flex items-center justify-center mb-4">
-                      <ImageIcon className="w-8 h-8 text-[#00ff9d]/30" />
+                    <div>
+                      <h3 className="font-semibold text-white text-sm">Flux AI Designer</h3>
+                      <p className="text-[10px] text-white/40">Generate • Edit • Analyze</p>
                     </div>
-                    <p className="text-white/40 text-sm mb-2">No design generated yet</p>
-                    <p className="text-white/30 text-xs">Use the chat to describe your vision</p>
                   </div>
-                )}
+                </div>
+
+                {/* Quick actions */}
+                <div className="px-3 py-2 border-b border-white/[0.06] flex gap-2 overflow-x-auto">
+                  <button className="px-2.5 py-1 text-[10px] bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-full whitespace-nowrap transition-colors">
+                    ✨ Generate
+                  </button>
+                  <button className="px-2.5 py-1 text-[10px] bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-full whitespace-nowrap transition-colors">
+                    🎨 Edit style
+                  </button>
+                  <button className="px-2.5 py-1 text-[10px] bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-full whitespace-nowrap transition-colors">
+                    🔍 Analyze
+                  </button>
+                  <button className="px-2.5 py-1 text-[10px] bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-full whitespace-nowrap transition-colors">
+                    🛋️ Furniture
+                  </button>
+                </div>
+                
+                {/* Chat panel */}
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <ChatWrapper
+                    projectId={projectId}
+                    roomId={selectedRoomId}
+                    selectedObjectId={selectedObject?.id || null}
+                    onEditImage={handleEditImage}
+                    onLoadingChange={setIsGenerating}
+                    onImageGenerated={handleImageGenerated}
+                    placeholder={
+                      selectedObject
+                        ? `Editing ${selectedObject.label}...`
+                        : `Describe your ${selectedRoom?.name || 'room'} design...`
+                    }
+                  />
+                </div>
               </div>
             </div>
           </div>
