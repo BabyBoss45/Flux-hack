@@ -443,7 +443,7 @@ sudo nano .env
 # Ensure output: 'standalone' is set
 
 # 4. Build and start containers
-sudo docker compose up -d --build
+npm run build && sudo docker compose up -d --build
 
 # 5. Configure Nginx
 sudo nano /etc/nginx/sites-available/interior
@@ -472,7 +472,7 @@ cd /opt/interior
 sudo git pull
 
 # Rebuild and restart containers
-sudo docker compose up -d --build
+npm run build && sudo docker compose up -d --build
 
 # View logs if needed
 sudo docker compose logs -f

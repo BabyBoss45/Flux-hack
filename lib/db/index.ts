@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { initializeDatabase } from './init';
 
-const DATABASE_PATH = process.env.DATABASE_URL || 'sqlite.db';
+const DATABASE_PATH = (process.env.DATABASE_URL || 'sqlite.db').replace(/^file:/, '');
 
 let db: Database.Database | null = null;
 let lastCheckpoint = 0;
