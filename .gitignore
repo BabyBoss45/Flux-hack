@@ -42,3 +42,8 @@ next-env.d.ts
 
 # uploads
 /public/uploads
+
+# SQLite temp files
+*.db-shm
+*.db-wal
+*.db-journal
