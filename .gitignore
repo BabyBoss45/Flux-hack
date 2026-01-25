@@ -45,3 +45,4 @@ next-env.d.ts
 sqlite.db-shm
 sqlite.db-wal
 sqlite.db
+sqlite.db-wal
