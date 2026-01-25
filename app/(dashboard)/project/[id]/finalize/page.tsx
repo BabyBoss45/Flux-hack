@@ -91,16 +91,115 @@ export default function FinalizePage({ params }: { params: Promise<{ id: string 
         );
 
         setRoomsWithAnalysis(roomsData);
+        setLoading(false);
+        
+        // Auto-analyze all rooms with images on page load
+        autoAnalyzeRooms(roomsData);
       } catch (error) {
         console.error('Failed to fetch project:', error);
         router.push('/');
-      } finally {
         setLoading(false);
       }
     }
 
     fetchData();
   }, [projectId, router]);
+
+  // Auto-analyze all rooms on page load
+  const autoAnalyzeRooms = async (roomsData: RoomWithAnalysis[]) => {
+    const roomsWithImages = roomsData.filter((r) => r.latestImage);
+    if (roomsWithImages.length === 0) return;
+    
+    setAnalyzingAll(true);
+    console.log('[Finalize] Auto-analyzing', roomsWithImages.length, 'rooms');
+    
+    for (let i = 0; i < roomsData.length; i++) {
+      const roomData = roomsData[i];
+      if (!roomData.latestImage) continue;
+      
+      console.log('[Finalize] Analyzing room:', roomData.room.name);
+      
+      // Set loading state for this room
+      setRoomsWithAnalysis((prev) => {
+        const updated = [...prev];
+        if (updated[i]) {
+          updated[i] = {
+            ...updated[i],
+            analysis: { status: 'loading' },
+          };
+        }
+        return updated;
+      });
+
+      try {
+        const formData = new FormData();
+        formData.append('imageUrl', roomData.latestImage.url);
+        formData.append('roomName', roomData.room.name);
+
+        const response = await fetch('/api/llm/analyze-and-shop', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('[Finalize] Room', roomData.room.name, 'analysis:', result.status);
+          
+          setRoomsWithAnalysis((prev) => {
+            const updated = [...prev];
+            if (updated[i]) {
+              updated[i] = {
+                ...updated[i],
+                analysis: {
+                  status: result.status === 'success' ? 'success' : 'error',
+                  object_names: result.object_names,
+                  total_price: result.total_price,
+                  objects: result.objects,
+                  overall_style: result.overall_style,
+                  color_palette: result.color_palette,
+                  error: result.error,
+                },
+              };
+            }
+            return updated;
+          });
+        } else {
+          const errorText = await response.text();
+          console.error('[Finalize] Room', roomData.room.name, 'failed:', errorText);
+          
+          setRoomsWithAnalysis((prev) => {
+            const updated = [...prev];
+            if (updated[i]) {
+              updated[i] = {
+                ...updated[i],
+                analysis: { status: 'error', error: 'Analysis failed' },
+              };
+            }
+            return updated;
+          });
+        }
+      } catch (error) {
+        console.error('[Finalize] Room', roomData.room.name, 'error:', error);
+        
+        setRoomsWithAnalysis((prev) => {
+          const updated = [...prev];
+          if (updated[i]) {
+            updated[i] = {
+              ...updated[i],
+              analysis: {
+                status: 'error',
+                error: error instanceof Error ? error.message : 'Analysis failed',
+              },
+            };
+          }
+          return updated;
+        });
+      }
+    }
+    
+    setAnalyzingAll(false);
+    console.log('[Finalize] Auto-analysis complete');
+  };
 
   // Analyze a single room
   const analyzeRoom = async (roomIndex: number) => {
