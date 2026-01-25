@@ -15,7 +15,7 @@ interface UseChatOptions {
 }
 
 // Custom transport that intercepts response headers
-class ImageAwareChatTransport extends DefaultChatTransport {
+class ImageAwareChatTransport extends DefaultChatTransport<UIMessage> {
   private onImageGenerated?: (imageUrl: string, detectedObjects: any[]) => void;
 
   constructor(options: any) {
