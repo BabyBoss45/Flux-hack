@@ -44,6 +44,7 @@ export interface RoomImage {
   prompt: string;
   view_type: string;
   detected_items: string;
+  is_final: number;
   created_at: string;
 }
 
@@ -343,6 +344,19 @@ export function createRoomImage(
 
 export function updateRoomImageItems(id: number, detectedItems: string): void {
   execute('UPDATE room_images SET detected_items = ? WHERE id = ?', [detectedItems, id]);
+}
+
+export function getRoomImageById(id: number): RoomImage | undefined {
+  return queryOne<RoomImage>(
+    'SELECT id, room_id, url, prompt, view_type, detected_items, created_at FROM room_images WHERE id = ?',
+    [id]
+  );
+}
+
+export function setImageAsFinal(imageId: number, roomId: number): void {
+  // Clear any existing final images for this room, then mark the new one
+  execute('UPDATE room_images SET is_final = 0 WHERE room_id = ?', [roomId]);
+  execute('UPDATE room_images SET is_final = 1 WHERE id = ? AND room_id = ?', [imageId, roomId]);
 }
 
 // Message queries

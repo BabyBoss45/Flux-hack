@@ -71,6 +71,7 @@ export function initializeDatabase(db: Database.Database): void {
       prompt TEXT NOT NULL,
       view_type TEXT DEFAULT 'perspective',
       detected_items TEXT DEFAULT '[]',
+      is_final INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
     );
