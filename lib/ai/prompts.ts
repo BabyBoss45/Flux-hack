@@ -326,11 +326,113 @@ export function buildImagePrompt(
   room: Room,
   preferences: Record<string, string>
 ): string {
-  const style = preferences.style || 'modern';
-  const colors = preferences.colors || 'neutral tones';
+  // Extract wizard preferences
+  const buildingType = preferences.buildingType || preferences.building_type || '';
+  const architectureStyle = preferences.architectureStyle || preferences.architecture_style || preferences.style || 'modern';
+  const atmosphere = preferences.atmosphere || 'bright and airy';
+  const constraints = preferences.constraints || [];
+  const customNotes = preferences.customNotes || preferences.custom_notes || '';
+  
+  // Parse room geometry and features
+  let geometry: any = {};
+  let doors: any[] = [];
+  let windows: any[] = [];
+  let fixtures: any[] = [];
+  let adjacentRooms: any[] = [];
+  
+  try {
+    geometry = room.geometry ? JSON.parse(room.geometry) : {};
+    doors = room.doors ? JSON.parse(room.doors) : [];
+    windows = room.windows ? JSON.parse(room.windows) : [];
+    fixtures = room.fixtures ? JSON.parse(room.fixtures) : [];
+    adjacentRooms = room.adjacent_rooms ? JSON.parse(room.adjacent_rooms) : [];
+  } catch (e) {
+    // Fallback to empty if parsing fails
+  }
 
-  return `Photorealistic interior design render of a ${room.type.toLowerCase()} in ${style} style. ${userDescription}.
-Color palette: ${colors}.
-Professional interior photography, high-end finishes, natural lighting through windows,
-detailed textures on furniture and fabrics, 8K resolution, architectural visualization quality.`;
+  // Build comprehensive prompt parts
+  const parts: string[] = [];
+  
+  // 1. Base description with style and atmosphere
+  parts.push(`Photorealistic interior design render of a ${room.type.toLowerCase()}`);
+  if (buildingType) {
+    parts.push(`in a ${buildingType}`);
+  }
+  parts.push(`with ${architectureStyle} architectural style`);
+  parts.push(`creating a ${atmosphere} atmosphere`);
+  
+  // 2. User description
+  if (userDescription && userDescription.trim()) {
+    parts.push(`. ${userDescription}`);
+  }
+  
+  // 3. Room dimensions (if available)
+  if (geometry.length_ft && geometry.width_ft) {
+    parts.push(`. Spacious ${geometry.length_ft} by ${geometry.width_ft} feet room`);
+  } else if (geometry.area_sqft) {
+    parts.push(`. ${geometry.area_sqft} square feet of space`);
+  }
+  
+  // 4. Natural lighting from windows
+  if (windows.length > 0) {
+    const windowCount = windows.length;
+    const windowPositions = windows.map((w: any) => w.position || w.location).filter(Boolean);
+    if (windowPositions.length > 0) {
+      parts.push(`. Natural light streaming through ${windowCount} ${windowCount === 1 ? 'window' : 'windows'} on the ${windowPositions.join(' and ')} side${windowCount > 1 ? 's' : ''}`);
+    } else {
+      parts.push(`. Abundant natural light from ${windowCount} large ${windowCount === 1 ? 'window' : 'windows'}`);
+    }
+  } else {
+    parts.push(`. Well-lit with natural and ambient lighting`);
+  }
+  
+  // 5. Doors and flow
+  if (doors.length > 0 && adjacentRooms.length > 0) {
+    parts.push(`. Seamless flow connecting to ${adjacentRooms.slice(0, 2).join(' and ')}`);
+  }
+  
+  // 6. Fixed fixtures
+  if (fixtures.length > 0) {
+    const fixtureList = fixtures.slice(0, 3).join(', ');
+    parts.push(`. Features ${fixtureList}`);
+  }
+  
+  // 7. Constraints and special requirements
+  const constraintDetails: string[] = [];
+  if (Array.isArray(constraints)) {
+    const constraintStrings = constraints.map((c: any) => String(c).toLowerCase());
+    if (constraintStrings.some(c => c.includes('kid-friendly') || c.includes('kid friendly'))) {
+      constraintDetails.push('child-safe furniture with rounded edges');
+    }
+    if (constraintStrings.some(c => c.includes('pet-friendly') || c.includes('pet friendly'))) {
+      constraintDetails.push('durable, easy-to-clean materials');
+    }
+    if (constraintStrings.some(c => c.includes('storage'))) {
+      constraintDetails.push('built-in storage solutions and organizational features');
+    }
+    if (constraintStrings.some(c => c.includes('sustainable') || c.includes('eco-friendly'))) {
+      constraintDetails.push('eco-friendly and sustainable materials');
+    }
+    if (constraintStrings.some(c => c.includes('luxury') || c.includes('premium'))) {
+      constraintDetails.push('premium finishes and high-end materials');
+    }
+  }
+  
+  if (constraintDetails.length > 0) {
+    parts.push(`. Incorporating ${constraintDetails.join(', ')}`);
+  }
+  
+  // 8. Custom notes
+  if (customNotes && customNotes.trim()) {
+    parts.push(`. ${customNotes}`);
+  }
+  
+  // 9. Color palette
+  const colors = preferences.colors || preferences.colorMood || 'neutral tones with warm accents';
+  parts.push(`. Color palette: ${colors}`);
+  
+  // 10. Professional quality descriptors
+  parts.push(`. Professional interior photography, high-end finishes, detailed textures on furniture and fabrics, sophisticated material choices, 8K resolution, architectural visualization quality, photorealistic rendering`);
+  
+  return parts.join('');
 }

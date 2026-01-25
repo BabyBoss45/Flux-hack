@@ -1,4 +1,55 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 const RUNWARE_API_BASE = 'https://api.runware.ai/v1';
+
+// Cache for loaded env values
+let envLoaded = false;
+let cachedBflKey: string | undefined;
+
+// Load environment variables from LLM/.env if root .env doesn't have them
+function loadEnvFromLLM() {
+  if (envLoaded) return;
+  envLoaded = true;
+  
+  try {
+    const llmEnvPath = path.join(process.cwd(), 'LLM', '.env');
+    console.log('[bfl-client] Looking for env file at:', llmEnvPath);
+    
+    if (fs.existsSync(llmEnvPath)) {
+      const envContent = fs.readFileSync(llmEnvPath, 'utf-8');
+      console.log('[bfl-client] Found LLM/.env file, parsing...');
+      
+      envContent.split('\n').forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#')) {
+          const eqIndex = trimmed.indexOf('=');
+          if (eqIndex > 0) {
+            const key = trimmed.substring(0, eqIndex).trim();
+            const value = trimmed.substring(eqIndex + 1).trim();
+            
+            if (key === 'BFL_API_KEY' && value) {
+              cachedBflKey = value;
+              process.env.BFL_API_KEY = value;
+              console.log('[bfl-client] Loaded BFL_API_KEY from LLM/.env');
+            }
+            if (key === 'RUNWARE_API_KEY' && value) {
+              process.env.RUNWARE_API_KEY = value;
+              console.log('[bfl-client] Loaded RUNWARE_API_KEY from LLM/.env');
+            }
+          }
+        }
+      });
+    } else {
+      console.log('[bfl-client] LLM/.env file not found');
+    }
+  } catch (err) {
+    console.error('[bfl-client] Error loading env:', err);
+  }
+}
+
+// Load on module initialization
+loadEnvFromLLM();
 
 export interface GenerateImageParams {
   prompt: string;
@@ -36,11 +87,14 @@ export interface BFLStatusResponse {
 }
 
 function getApiKey(): string {
-  // Prefer a dedicated Runware key but fall back to the existing BFL key
-  const apiKey = process.env.RUNWARE_API_KEY || process.env.BFL_API_KEY;
+  // Ensure env is loaded
+  loadEnvFromLLM();
+  
+  // Prefer a dedicated Runware key but fall back to the existing BFL key or cached value
+  const apiKey = process.env.RUNWARE_API_KEY || process.env.BFL_API_KEY || cachedBflKey;
   if (!apiKey) {
     throw new Error(
-      'RUNWARE_API_KEY (or BFL_API_KEY) environment variable is not set'
+      'RUNWARE_API_KEY (or BFL_API_KEY) environment variable is not set. Please create a .env file in the root folder or ensure LLM/.env has the key.'
     );
   }
   return apiKey;

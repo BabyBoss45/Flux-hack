@@ -4,7 +4,7 @@ import { saveFile, saveBase64Image } from '@/lib/storage/blob';
 import { updateProject, getProjectById, createRoom } from '@/lib/db/queries';
 import * as llmClient from '@/lib/llm/client';
 
-export const maxDuration = 120; // 2 minute timeout
+export const maxDuration = 240; // 4 minute timeout (increased to allow for LLM processing)
 
 interface SSEEvent {
   event: string;

@@ -63,7 +63,7 @@ export async function analyzeFloorPlan(
   context?: string
 ): Promise<LLMAnalysisResult> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+  const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minute timeout (increased from 60s)
 
   try {
     // Detect content type from filename extension
@@ -109,7 +109,7 @@ export async function analyzeFloorPlan(
     if (error instanceof Error) {
       console.error(`[llm-client] Request failed: ${error.message}`);
       if (error.name === 'AbortError') {
-        throw new Error('LLM analysis timed out after 60 seconds');
+        throw new Error('LLM analysis timed out after 3 minutes');
       }
       throw new Error(`LLM analysis failed: ${error.message}`);
     }

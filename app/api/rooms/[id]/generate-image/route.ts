@@ -30,17 +30,28 @@ interface GeneratePayload {
     model?: string;
     numberResults?: number;
   };
+  // Wizard preferences
+  buildingType?: string;
+  architectureStyle?: string;
+  atmosphere?: string;
+  constraints?: string[];
+  customNotes?: string;
 }
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  console.log('[generate-image] POST request received');
+  
   try {
     const session = await getSession();
     if (!session) {
+      console.log('[generate-image] Unauthorized - no session');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    
+    console.log('[generate-image] Session valid, user:', session.user.id);
 
     const { id } = await params;
     const roomIdFromPath = parseInt(id, 10);
@@ -69,7 +80,7 @@ export async function POST(
 
     const viewType = body.viewType || 'perspective';
 
-    // Merge project preferences with payload hints
+    // Merge project preferences with payload hints and wizard data
     const basePreferences = project.global_preferences
       ? JSON.parse(project.global_preferences)
       : {};
@@ -78,7 +89,13 @@ export async function POST(
       ...basePreferences,
       ...(body.style ? { style: body.style } : {}),
       ...(body.colorPalette ? { colors: body.colorPalette } : {}),
-    } as Record<string, string>;
+      // Include wizard preferences from payload
+      ...(body.buildingType ? { buildingType: body.buildingType } : {}),
+      ...(body.architectureStyle ? { architectureStyle: body.architectureStyle } : {}),
+      ...(body.atmosphere ? { atmosphere: body.atmosphere } : {}),
+      ...(body.constraints ? { constraints: body.constraints } : {}),
+      ...(body.customNotes ? { customNotes: body.customNotes } : {}),
+    } as Record<string, any>;
 
     // Build the final prompt using existing helper
     const prompt = buildImagePrompt(body.description, room, mergedPreferences);
@@ -89,6 +106,11 @@ export async function POST(
     const guidance = body.runware?.cfgScale;
     const model = body.runware?.model || 'runware:400@4';
 
+    console.log('[generate-image] Starting image generation with prompt:', prompt.substring(0, 100) + '...');
+    console.log('[generate-image] Dimensions:', width, 'x', height);
+    console.log('[generate-image] BFL_API_KEY present:', !!process.env.BFL_API_KEY);
+    console.log('[generate-image] RUNWARE_API_KEY present:', !!process.env.RUNWARE_API_KEY);
+    
     // Kick off Runware-backed generation
     const job = await generateImage({
       prompt,
@@ -99,7 +121,9 @@ export async function POST(
       model,
     });
 
+    console.log('[generate-image] Job created:', job.id?.substring(0, 50) + '...');
     const result = await pollForResult(job.id);
+    console.log('[generate-image] Poll result:', result.success ? 'success' : 'failed', result.error || '');
 
     if (!result.success || !result.imageUrl) {
       return NextResponse.json(

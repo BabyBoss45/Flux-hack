@@ -108,6 +108,21 @@ class FloorPlanAnalyzer:
             # Get room data from Claude
             rooms_data = self._analyze_with_claude(image_base64, width, height, context, media_type)
             
+            # Filter out small rooms (closets, storage) - only keep rooms >= 30 sqft
+            MIN_ROOM_SIZE_SQFT = 30
+            filtered_rooms = [
+                room for room in rooms_data 
+                if room.get('area_sqft', 0) >= MIN_ROOM_SIZE_SQFT
+            ]
+            
+            excluded_count = len(rooms_data) - len(filtered_rooms)
+            if excluded_count > 0:
+                print(f"Filtered out {excluded_count} small rooms (<{MIN_ROOM_SIZE_SQFT} sqft)")
+                excluded_names = [r.get('name', 'Unknown') for r in rooms_data if r.get('area_sqft', 0) < MIN_ROOM_SIZE_SQFT]
+                print(f"Excluded rooms: {', '.join(excluded_names)}")
+            
+            rooms_data = filtered_rooms
+            
             # Create annotated image
             annotated_image = self._create_annotated_image(
                 original_image, 
