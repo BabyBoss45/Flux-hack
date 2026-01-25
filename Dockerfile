@@ -5,7 +5,7 @@ WORKDIR /app
 
 COPY package.json ./
 COPY package-lock.json ./
-RUN npm ci
+RUN npm install
 
 # Stage 2: Build
 FROM node:20-alpine AS builder
