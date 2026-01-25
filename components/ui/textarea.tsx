@@ -7,7 +7,25 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
     <textarea
       data-slot="textarea"
       className={cn(
-        "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 flex field-sizing-content min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        // Base styles
+        "flex field-sizing-content min-h-16 w-full rounded-lg px-4 py-3 text-base",
+        // Liquid glass background
+        "bg-[rgba(0,255,157,0.03)] backdrop-blur-sm",
+        // Border with subtle glow
+        "border border-[rgba(0,255,157,0.15)]",
+        // Text colors
+        "text-white placeholder:text-white/40",
+        // Selection
+        "selection:bg-[rgba(0,255,157,0.3)] selection:text-white",
+        // Transitions
+        "transition-all duration-200 outline-none",
+        // Focus state with green glow
+        "focus:border-[rgba(0,255,157,0.5)]",
+        "focus:shadow-[0_0_0_1px_rgba(0,255,157,0.2),0_0_15px_rgba(0,255,157,0.15),0_0_30px_rgba(0,255,157,0.05)]",
+        // Disabled state
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        // Error state
+        "aria-invalid:border-[#ff3b5c] aria-invalid:shadow-[0_0_15px_rgba(255,59,92,0.2)]",
         className
       )}
       {...props}

@@ -261,19 +261,41 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
       });
     }
     
-    // Auto-generate images for detected rooms using existing preferences
-    const existingPrefs = project?.global_preferences 
-      ? JSON.parse(project.global_preferences) 
-      : {};
+    // Update rooms state immediately so wizard knows rooms are available
+    if (data.rooms && data.rooms.length > 0) {
+      setRooms(data.rooms.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        type: r.type || r.room_type || 'room',
+        approved: 0,
+      })));
+    }
     
-    if (data.rooms && data.rooms.length > 0 && existingPrefs.architectureStyle) {
+    // Fetch FRESH project data from API to get latest preferences
+    // (the wizard may have saved preferences that aren't in our stale state)
+    let freshPrefs: any = {};
+    try {
+      const projectRes = await fetch(`/api/projects/${projectId}`);
+      if (projectRes.ok) {
+        const freshProject = await projectRes.json();
+        freshPrefs = freshProject.project?.global_preferences 
+          ? JSON.parse(freshProject.project.global_preferences) 
+          : {};
+        console.log('[Upload] Fetched fresh preferences:', freshPrefs);
+      }
+    } catch (err) {
+      console.error('[Upload] Failed to fetch fresh project data:', err);
+    }
+    
+    // Auto-generate images for detected rooms using FRESH preferences
+    if (data.rooms && data.rooms.length > 0 && freshPrefs.architectureStyle) {
       console.log('[Upload] Auto-generating images for', data.rooms.length, 'detected rooms');
       
-      const style = existingPrefs.architectureStyle || 'modern';
-      const atmosphere = existingPrefs.atmosphere || 'elegant';
-      const buildingType = existingPrefs.buildingType || 'apartment';
-      const constraintsText = existingPrefs.constraints?.join(', ') || '';
-      const customNotes = existingPrefs.customNotes || '';
+      const style = freshPrefs.architectureStyle || 'modern';
+      const atmosphere = freshPrefs.atmosphere || 'elegant';
+      const buildingType = freshPrefs.buildingType || 'apartment';
+      const constraintsText = freshPrefs.constraints?.join(', ') || '';
+      const customNotes = freshPrefs.customNotes || '';
       
       for (const room of data.rooms) {
         // Skip utility rooms
@@ -306,6 +328,8 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         }
       }
       console.log('[Upload] All images generated');
+    } else {
+      console.log('[Upload] Skipping auto-generation - waiting for wizard completion. Has rooms:', data.rooms?.length, 'Has style:', !!freshPrefs.architectureStyle);
     }
     
     // Reload to show detected rooms with images
@@ -363,9 +387,25 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
       setProject({ ...project, global_preferences: JSON.stringify(preferences) });
     }
 
+    // Fetch fresh rooms from API in case state is stale
+    let roomsToGenerate = rooms;
+    if (rooms.length === 0) {
+      console.log('[Wizard] No rooms in state, fetching from API...');
+      try {
+        const res = await fetch(`/api/projects/${projectId}`);
+        if (res.ok) {
+          const freshData = await res.json();
+          roomsToGenerate = freshData.rooms || [];
+          console.log('[Wizard] Fetched', roomsToGenerate.length, 'rooms from API');
+        }
+      } catch (err) {
+        console.error('[Wizard] Failed to fetch rooms:', err);
+      }
+    }
+
     // If rooms exist, auto-generate images for each room
-    if (rooms.length > 0) {
-      console.log('[Wizard] Auto-generating images for', rooms.length, 'rooms');
+    if (roomsToGenerate.length > 0) {
+      console.log('[Wizard] Auto-generating images for', roomsToGenerate.length, 'rooms');
       
       // Build prompt from preferences
       const style = data.architectureStyle || 'modern';
@@ -374,16 +414,17 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
       const constraintsText = data.constraints?.join(', ') || '';
       const customNotes = data.customNotes || '';
       
-      // Generate images for each room (don't await - let them run in background)
-      for (const room of rooms) {
+      // Generate images for each room
+      for (const room of roomsToGenerate) {
         // Skip utility rooms
         const utilityTypes = ['closet', 'storage', 'utility', 'laundry', 'garage', 'hallway', 'corridor'];
-        if (utilityTypes.some(t => room.type.toLowerCase().includes(t))) {
+        const roomType = room.type || 'room';
+        if (utilityTypes.some(t => roomType.toLowerCase().includes(t))) {
           console.log('[Wizard] Skipping utility room:', room.name);
           continue;
         }
         
-        const prompt = `A ${style} ${room.type} in a ${buildingType}, ${atmosphere} atmosphere. ${constraintsText ? `Design considerations: ${constraintsText}.` : ''} ${customNotes ? `Additional notes: ${customNotes}` : ''} Professional interior design photography, high quality, detailed.`;
+        const prompt = `A ${style} ${roomType} in a ${buildingType}, ${atmosphere} atmosphere. ${constraintsText ? `Design considerations: ${constraintsText}.` : ''} ${customNotes ? `Additional notes: ${customNotes}` : ''} Professional interior design photography, high quality, detailed.`;
         
         console.log('[Wizard] Generating image for room:', room.name, 'with prompt:', prompt);
         
@@ -410,6 +451,8 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
       console.log('[Wizard] All images generated, refreshing...');
       // Refresh page to show Step 2 with images
       window.location.reload();
+    } else {
+      console.log('[Wizard] No rooms available for image generation');
     }
   };
 
@@ -421,7 +464,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin w-8 h-8 border-2 border-accent-warm border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-2 border-[#00ff9d] border-t-transparent rounded-full shadow-[0_0_15px_rgba(0,255,157,0.3)]" />
       </div>
     );
   }
@@ -433,7 +476,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   // Step 1: Upload / Setup - Full width modern layout
   if (currentStep === 1) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
+      <div className="min-h-screen flex flex-col">
         <Header showSteps currentStep={1} />
 
         <main className="flex-1 flex overflow-hidden">
@@ -444,7 +487,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               <div className="flex items-center gap-6">
                 <Link
                   href="/"
-                  className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all"
+                  className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[rgba(0,255,157,0.05)] border border-[rgba(0,255,157,0.15)] hover:bg-[rgba(0,255,157,0.1)] hover:border-[rgba(0,255,157,0.3)] text-white/60 hover:text-[#00ff9d] transition-all"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </Link>
@@ -459,10 +502,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             <div className="flex-1 grid lg:grid-cols-2 gap-8 min-h-0 max-h-[calc(100vh-180px)] overflow-hidden">
               {/* Left: Upload panel - larger */}
               <div className="flex flex-col min-h-0 overflow-hidden">
-                <div className="bg-[#111] border border-white/[0.06] rounded-2xl flex-1 flex flex-col overflow-hidden">
-                  <div className="px-6 py-5 border-b border-white/[0.06]">
+                <div className="panel flex-1 flex flex-col overflow-hidden">
+                  <div className="px-6 py-5 border-b border-[rgba(0,255,157,0.1)]">
                     <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                      <Upload className="w-5 h-5 text-accent-warm" />
+                      <Upload className="w-5 h-5 text-[#00ff9d]" />
                       Add Your Space
                     </h2>
                   </div>
@@ -471,28 +514,28 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                       <div className="grid gap-4 h-full">
                         <button
                           onClick={() => setSetupMode('upload')}
-                          className="group relative p-8 border border-white/[0.08] rounded-2xl hover:border-accent-warm/50 hover:bg-gradient-to-br hover:from-accent-warm/5 hover:to-transparent transition-all duration-300 text-left flex flex-col"
+                          className="group relative p-8 border border-[rgba(0,255,157,0.15)] rounded-2xl hover:border-[rgba(0,255,157,0.4)] hover:bg-[rgba(0,255,157,0.05)] hover:shadow-[0_0_30px_rgba(0,255,157,0.1)] transition-all duration-300 text-left flex flex-col"
                         >
-                          <div className="w-14 h-14 rounded-2xl bg-accent-warm/10 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
-                            <Upload className="w-7 h-7 text-accent-warm" />
+                          <div className="w-14 h-14 rounded-2xl bg-[rgba(0,255,157,0.1)] border border-[rgba(0,255,157,0.2)] flex items-center justify-center mb-5 group-hover:scale-110 group-hover:shadow-[0_0_20px_rgba(0,255,157,0.3)] transition-all">
+                            <Upload className="w-7 h-7 text-[#00ff9d]" />
                           </div>
-                          <h3 className="text-lg font-semibold mb-2 text-white">Upload Floor Plan</h3>
+                          <h3 className="text-lg font-semibold mb-2 text-white group-hover:text-[#00ff9d] transition-colors">Upload Floor Plan</h3>
                           <p className="text-sm text-white/50 leading-relaxed">
                             Upload a PDF or image of your floor plan and we&apos;ll automatically detect all rooms
                           </p>
                           <div className="mt-auto pt-4">
-                            <span className="text-xs text-accent-warm/70 font-medium">Recommended</span>
+                            <span className="text-xs text-[#00ff9d]/70 font-medium">Recommended</span>
                           </div>
                         </button>
 
                         <button
                           onClick={() => setSetupMode('manual')}
-                          className="group relative p-8 border border-white/[0.08] rounded-2xl hover:border-white/20 hover:bg-white/[0.02] transition-all duration-300 text-left flex flex-col"
+                          className="group relative p-8 border border-[rgba(255,255,255,0.08)] rounded-2xl hover:border-[rgba(0,255,157,0.25)] hover:bg-[rgba(0,255,157,0.03)] transition-all duration-300 text-left flex flex-col"
                         >
-                          <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
-                            <Edit3 className="w-7 h-7 text-white/60" />
+                          <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-5 group-hover:scale-110 group-hover:border-[rgba(0,255,157,0.2)] transition-all">
+                            <Edit3 className="w-7 h-7 text-white/60 group-hover:text-[#00ff9d] transition-colors" />
                           </div>
-                          <h3 className="text-lg font-semibold mb-2 text-white">Enter Manually</h3>
+                          <h3 className="text-lg font-semibold mb-2 text-white group-hover:text-white/90 transition-colors">Enter Manually</h3>
                           <p className="text-sm text-white/50 leading-relaxed">
                             Manually enter the rooms in your space if you don&apos;t have a floor plan
                           </p>
@@ -538,13 +581,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
               {/* Right: Design Brief Wizard - larger with better styling */}
               <div className="flex flex-col min-h-0">
-                <div className="bg-[#111] border border-white/[0.06] rounded-2xl flex-1 flex flex-col overflow-hidden">
-                  <div className="px-6 py-5 border-b border-white/[0.06]">
-                    <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                      <span className="text-xl">✨</span>
-                      Design Assistant
-                    </h2>
-                  </div>
+                <div className="panel flex-1 flex flex-col overflow-hidden">
                   <div className="flex-1 overflow-hidden">
                     <DesignBriefWizard
                       projectId={projectId}
@@ -565,7 +602,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   // Step 2: Design
   if (currentStep === 2) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
+      <div className="min-h-screen flex flex-col">
         <Header showSteps currentStep={2} />
 
         <main className="flex-1 flex overflow-hidden">
@@ -574,7 +611,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             {/* Left column: Room selection + Brief + Chat (fixed width) */}
             <div className="w-[280px] flex-shrink-0 flex flex-col gap-4 overflow-hidden">
               {/* Room selector card */}
-              <div className="bg-[#111] border border-white/[0.06] rounded-xl p-4">
+              <div className="panel p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="font-semibold text-white text-sm truncate">{project.name}</h2>
                   <Button
@@ -594,13 +631,13 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               </div>
 
               {/* Collapsible Design Brief */}
-              <div className="bg-[#111] border border-white/[0.06] rounded-xl overflow-hidden">
+              <div className="panel overflow-hidden">
                 <button
                   onClick={() => setBriefExpanded(!briefExpanded)}
-                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-[rgba(0,255,157,0.03)] transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-accent-warm" />
+                    <Sparkles className="w-4 h-4 text-[#00ff9d]" />
                     <span className="text-sm font-medium text-white">Design Brief</span>
                   </div>
                   {briefExpanded ? (
@@ -610,7 +647,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   )}
                 </button>
                 {briefExpanded && (
-                  <div className="px-4 pb-4 space-y-2 border-t border-white/[0.06] pt-3">
+                  <div className="px-4 pb-4 space-y-2 border-t border-[rgba(0,255,157,0.1)] pt-3">
                     {preferences.architectureStyle && (
                       <div className="flex items-center gap-2 text-xs">
                         <span className="text-white/40">Style:</span>
@@ -647,7 +684,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
               {/* Floor plan viewer - collapsible */}
               {project.floor_plan_url && (
-                <div className="bg-[#111] border border-white/[0.06] rounded-xl p-4">
+                <div className="panel p-4">
                   <h3 className="font-medium text-white text-xs mb-3 text-white/60">Floor Plan</h3>
                   <FloorPlanToggle
                     floorPlanUrl={project.floor_plan_url}
@@ -657,7 +694,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               )}
 
               {/* Chat panel - takes remaining space */}
-              <div className="flex-1 min-h-0 bg-[#111] border border-white/[0.06] rounded-xl overflow-hidden flex flex-col">
+              <div className="flex-1 min-h-0 panel overflow-hidden flex flex-col">
                 <ChatWrapper
                   projectId={projectId}
                   roomId={selectedRoomId}
@@ -676,7 +713,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
             {/* Right column: Room generation/image viewer (takes remaining space) */}
             <div className="flex-1 min-w-0 flex flex-col">
-              <div className="bg-[#111] border border-white/[0.06] rounded-xl flex-1 flex items-center justify-center p-4 overflow-hidden">
+              <div className="panel flex-1 flex items-center justify-center p-4 overflow-hidden">
                 {roomImages.length > 0 ? (
                   <div className="w-full h-full flex items-center justify-center relative">
                     {isImageLoading && (
@@ -702,8 +739,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     </div>
                   </ImageGeneration>
                 ) : (
-                  <div className="flex flex-col items-center justify-center bg-white/[0.02] rounded-xl w-full aspect-square max-w-[800px] max-h-full border border-dashed border-white/10">
-                    <ImageIcon className="w-12 h-12 text-white/20 mb-4" />
+                  <div className="flex flex-col items-center justify-center bg-[rgba(0,255,157,0.02)] rounded-xl w-full aspect-square max-w-[800px] max-h-full border border-dashed border-[rgba(0,255,157,0.15)]">
+                    <div className="w-16 h-16 rounded-xl bg-[rgba(0,255,157,0.05)] border border-[rgba(0,255,157,0.1)] flex items-center justify-center mb-4">
+                      <ImageIcon className="w-8 h-8 text-[#00ff9d]/30" />
+                    </div>
                     <p className="text-white/40 text-sm mb-2">No design generated yet</p>
                     <p className="text-white/30 text-xs">Use the chat to describe your vision</p>
                   </div>
@@ -752,14 +791,14 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             </div>
             <div className="flex items-center gap-3">
               <Link href={`/project/${projectId}/finalize`}>
-                <Button className="bg-green-600 hover:bg-green-700">
+                <Button>
                   <ShoppingCart className="w-4 h-4 mr-2" />
                   Shop Furniture
                 </Button>
               </Link>
               <Button
                 onClick={() => setShareOpen(true)}
-                className="bg-accent-warm hover:bg-accent-warm/90"
+                variant="outline"
               >
                 <Share2 className="w-4 h-4 mr-2" />
                 Share Design

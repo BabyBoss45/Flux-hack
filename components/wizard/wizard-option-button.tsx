@@ -28,10 +28,10 @@ export function WizardOptionButton({
       <button
         onClick={() => onSelect(option.value)}
         className={cn(
-          'flex flex-col items-center gap-2 p-3 rounded-lg border transition-all',
+          'flex flex-col items-center gap-2 p-3 rounded-lg border transition-all duration-200',
           selected
-            ? 'border-accent-warm bg-accent-warm/10'
-            : 'border-white/10 hover:border-white/20 hover:bg-white/5'
+            ? 'border-[rgba(0,255,157,0.5)] bg-[rgba(0,255,157,0.1)] shadow-[0_0_15px_rgba(0,255,157,0.2)]'
+            : 'border-[rgba(255,255,255,0.08)] hover:border-[rgba(0,255,157,0.3)] hover:bg-[rgba(0,255,157,0.05)]'
         )}
       >
         <div
@@ -48,10 +48,10 @@ export function WizardOptionButton({
       <button
         onClick={() => onSelect(option.value)}
         className={cn(
-          'flex items-center gap-2 px-3 py-2 rounded-full border transition-all text-sm',
+          'flex items-center gap-2 px-3 py-2 rounded-full border transition-all duration-200 text-sm',
           selected
-            ? 'border-accent-warm bg-accent-warm/10 text-accent-warm'
-            : 'border-white/10 hover:border-white/20 hover:bg-white/5 text-white/80'
+            ? 'border-[rgba(0,255,157,0.5)] bg-[rgba(0,255,157,0.15)] text-[#00ff9d] shadow-[0_0_12px_rgba(0,255,157,0.2)]'
+            : 'border-[rgba(255,255,255,0.1)] hover:border-[rgba(0,255,157,0.3)] hover:bg-[rgba(0,255,157,0.05)] text-white/80'
         )}
       >
         {option.icon && <span>{option.icon}</span>}
@@ -65,14 +65,20 @@ export function WizardOptionButton({
     <button
       onClick={() => onSelect(option.value)}
       className={cn(
-        'flex flex-col items-center gap-2 p-4 rounded-xl border transition-all text-center',
+        'flex flex-col items-center gap-2 p-4 rounded-xl border transition-all duration-200 text-center',
+        'bg-[rgba(13,17,23,0.5)] backdrop-blur-sm',
         selected
-          ? 'border-accent-warm bg-accent-warm/10'
-          : 'border-white/10 hover:border-accent-warm/50 hover:bg-white/5'
+          ? 'border-[rgba(0,255,157,0.5)] bg-[rgba(0,255,157,0.1)] shadow-[0_0_20px_rgba(0,255,157,0.15)]'
+          : 'border-[rgba(255,255,255,0.08)] hover:border-[rgba(0,255,157,0.3)] hover:bg-[rgba(0,255,157,0.05)] hover:shadow-[0_0_15px_rgba(0,255,157,0.1)]'
       )}
     >
       {option.icon && <span className="text-2xl">{option.icon}</span>}
-      <span className="text-sm font-medium text-white">{option.label}</span>
+      <span className={cn(
+        "text-sm font-medium transition-colors",
+        selected ? "text-[#00ff9d]" : "text-white"
+      )}>
+        {option.label}
+      </span>
       {option.description && (
         <span className="text-xs text-white/50">{option.description}</span>
       )}

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Plus, Folder, Calendar, ArrowRight } from 'lucide-react';
+import { Plus, Folder, Calendar, ArrowRight, Hexagon } from 'lucide-react';
 import { requireAuth } from '@/lib/auth/mock-auth';
 import { getProjectsByUserId } from '@/lib/db/queries';
 import { Button } from '@/components/ui/button';
@@ -15,13 +15,13 @@ export default async function DashboardPage() {
 
       <main className="page-main">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-10">
             <div>
-              <h2 className="text-2xl font-bold text-white">Your Projects</h2>
-              <p className="text-white/60">Design and visualize your spaces</p>
+              <h2 className="text-3xl font-bold text-white mb-1">Your Projects</h2>
+              <p className="text-lg text-white/50">Design and visualize your spaces</p>
             </div>
             <Link href="/project/new">
-              <Button className="bg-accent-warm hover:bg-accent-warm/90">
+              <Button>
                 <Plus className="w-4 h-4 mr-2" />
                 New Project
               </Button>
@@ -29,15 +29,17 @@ export default async function DashboardPage() {
           </div>
 
           {projects.length === 0 ? (
-            <div className="panel text-center py-12">
+            <div className="panel text-center py-16">
               <div className="panel-body">
-                <Folder className="w-12 h-12 mx-auto mb-4 text-white/40" />
-                <h3 className="text-lg font-medium text-white mb-2">No projects yet</h3>
-                <p className="text-white/60 mb-4">
+                <div className="w-20 h-20 mx-auto mb-6 rounded-xl bg-[rgba(0,255,157,0.1)] border border-[rgba(0,255,157,0.2)] flex items-center justify-center">
+                  <Folder className="w-10 h-10 text-[#00ff9d]/60" />
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-3">No projects yet</h3>
+                <p className="text-base text-white/50 mb-8">
                   Create your first project to start designing
                 </p>
                 <Link href="/project/new">
-                  <Button className="bg-accent-warm hover:bg-accent-warm/90">
+                  <Button>
                     <Plus className="w-4 h-4 mr-2" />
                     Create Project
                   </Button>
@@ -53,14 +55,14 @@ export default async function DashboardPage() {
 
                 return (
                   <Link key={project.id} href={`/project/${project.id}`}>
-                    <div className="panel h-full hover:border-white/20 transition-colors cursor-pointer">
+                    <div className="panel h-full hover:border-[rgba(0,255,157,0.3)] hover:shadow-[0_0_25px_rgba(0,255,157,0.1)] transition-all duration-300 cursor-pointer group">
                       <div className="panel-header">
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-white">{project.name}</span>
-                          <ArrowRight className="w-4 h-4 text-white/40" />
+                          <span className="text-lg font-semibold text-white group-hover:text-[#00ff9d] transition-colors">{project.name}</span>
+                          <ArrowRight className="w-5 h-5 text-white/30 group-hover:text-[#00ff9d] group-hover:translate-x-1 transition-all" />
                         </div>
-                        <div className="flex items-center gap-1 text-sm text-white/50 mt-1">
-                          <Calendar className="w-3 h-3" />
+                        <div className="flex items-center gap-1.5 text-base text-white/40 mt-2">
+                          <Calendar className="w-4 h-4" />
                           {new Date(project.updated_at).toLocaleDateString()}
                         </div>
                       </div>
