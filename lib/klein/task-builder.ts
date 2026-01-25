@@ -1,4 +1,4 @@
-import type { ParsedInstruction, KleinTask, RoomImage, DetectedObject } from './types';
+import type { ParsedInstruction, KleinTask, RoomImage, DetectedObject, RoomContext } from './types';
 
 export async function buildKleinTasks(
   instruction: ParsedInstruction,
@@ -12,6 +12,17 @@ export async function buildKleinTasks(
       taskType: 'imageGeneration',
       model: 'flux-2.0-klein',
       prompt,
+      imageSize: '1024x1024',
+    });
+  } else if (instruction.intent === 'regenerate_room' && previousImage) {
+    // Image-to-image: Use existing image as base, apply changes
+    const prompt = buildRegenerationPrompt(instruction);
+    tasks.push({
+      taskType: 'imageToImage',
+      model: 'flux-2.0-klein',
+      prompt,
+      image: previousImage.imageUrl,
+      strength: 0.65, // 0.65 preserves structure while allowing changes
       imageSize: '1024x1024',
     });
   } else if (instruction.intent === 'edit_objects' && instruction.edits && previousImage) {
@@ -74,11 +85,77 @@ function buildGenerationPrompt(instruction: ParsedInstruction): string {
 
   const constraintText = constraints.length > 0 ? `. ${constraints.join(', ')}.` : '';
 
-  return `Photorealistic interior design render of a room${constraintText} Professional interior photography, high-end finishes, natural lighting, detailed textures, 8K resolution, architectural visualization quality.`;
+  // Include room context if available
+  const roomContext = instruction.roomContext;
+  let roomDetails = '';
+  if (roomContext) {
+    const parts = [];
+    parts.push(`${roomContext.type}`);
+    if (roomContext.geometry?.area_sqft) {
+      parts.push(`${roomContext.geometry.area_sqft} square feet`);
+    }
+    if (roomContext.windows && roomContext.windows.length > 0) {
+      parts.push(`with ${roomContext.windows.length} window${roomContext.windows.length > 1 ? 's' : ''}`);
+    }
+    if (roomContext.fixtures && roomContext.fixtures.length > 0) {
+      parts.push(`featuring ${roomContext.fixtures.slice(0, 3).join(', ')}`);
+    }
+    roomDetails = parts.join(', ');
+  }
+
+  const roomPart = roomDetails ? `a ${roomDetails}` : 'a room';
+
+  return `Photorealistic interior design render of ${roomPart}${constraintText} Professional interior photography, high-end finishes, natural lighting, detailed textures, 8K resolution, architectural visualization quality.`;
+}
+
+function buildRegenerationPrompt(instruction: ParsedInstruction): string {
+  const userPrompt = instruction.userPrompt || '';
+  const roomContext = instruction.roomContext;
+
+  // Build room description from context
+  let roomDescription = '';
+  if (roomContext) {
+    const parts = [];
+    parts.push(roomContext.type);
+    if (roomContext.geometry?.area_sqft) {
+      parts.push(`(${roomContext.geometry.area_sqft} sq ft)`);
+    }
+    if (roomContext.windows && roomContext.windows.length > 0) {
+      const windowPositions = roomContext.windows.map(w => w.position).filter(Boolean);
+      if (windowPositions.length > 0) {
+        parts.push(`with windows on ${windowPositions.join(' and ')}`);
+      }
+    }
+    if (roomContext.fixtures && roomContext.fixtures.length > 0) {
+      parts.push(`including ${roomContext.fixtures.slice(0, 3).join(', ')}`);
+    }
+    roomDescription = parts.join(' ');
+  }
+
+  // Constraint handling
+  const constraints = [];
+  if (instruction.constraints.preserve_layout) {
+    constraints.push('PRESERVE the exact room layout and spatial arrangement');
+  }
+  if (instruction.constraints.preserve_lighting) {
+    constraints.push('KEEP the current lighting setup');
+  }
+  if (instruction.constraints.preserve_camera) {
+    constraints.push('MAINTAIN the same camera angle and perspective');
+  }
+  const constraintText = constraints.length > 0 ? `\n\nConstraints:\n- ${constraints.join('\n- ')}` : '';
+
+  return `Modify this ${roomDescription || 'room'} based on the following request:
+
+"${userPrompt}"
+
+Apply the requested changes while maintaining photorealistic quality. Keep the overall room structure, floor plan layout, and architectural elements intact. Focus on changing only what the user specifically requested.${constraintText}
+
+Professional interior photography, high-end finishes, detailed textures, 8K resolution.`;
 }
 
 function buildEditPrompt(
-  edit: ParsedInstruction['edits'][0],
+  edit: NonNullable<ParsedInstruction['edits']>[number],
   instruction: ParsedInstruction,
   targetObject?: DetectedObject
 ): string {

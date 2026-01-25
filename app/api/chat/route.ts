@@ -88,9 +88,40 @@ export async function POST(request: Request) {
             try {
               const existingImages = getRoomImagesByRoomId(Number(roomId));
               const latestImage = existingImages[0] || null;
+              const hasExistingImage = !!latestImage;
 
               let availableObjects: DetectedObject[] = [];
               let previousImage: RoomImage | null = null;
+
+              // Build room context from currentRoom data
+              let roomContext = undefined;
+              if (currentRoom) {
+                let geometry = undefined;
+                let doors = undefined;
+                let windows = undefined;
+                let fixtures = undefined;
+                let adjacentRooms = undefined;
+                
+                try {
+                  if (currentRoom.geometry) geometry = JSON.parse(currentRoom.geometry);
+                  if (currentRoom.doors) doors = JSON.parse(currentRoom.doors);
+                  if (currentRoom.windows) windows = JSON.parse(currentRoom.windows);
+                  if (currentRoom.fixtures) fixtures = JSON.parse(currentRoom.fixtures);
+                  if (currentRoom.adjacent_rooms) adjacentRooms = JSON.parse(currentRoom.adjacent_rooms);
+                } catch (e) {
+                  console.error('Error parsing room JSON:', e);
+                }
+                
+                roomContext = {
+                  name: currentRoom.name,
+                  type: currentRoom.type,
+                  geometry,
+                  doors,
+                  windows,
+                  fixtures,
+                  adjacentRooms,
+                };
+              }
 
               if (latestImage) {
                 // Parse existing detected_items
@@ -121,15 +152,21 @@ export async function POST(request: Request) {
                   }
                 }
 
-                if (availableObjects.length > 0) {
-                  previousImage = {
-                    imageUrl: latestImage.url,
-                    objects: availableObjects,
-                  };
-                }
+                // Always set previousImage if we have an existing image (for regenerate_room)
+                previousImage = {
+                  imageUrl: latestImage.url,
+                  objects: availableObjects,
+                };
               }
 
-              parsedInstruction = await parseUserIntent(userContent, availableObjects, String(roomId), selectedObjectId);
+              parsedInstruction = await parseUserIntent(
+                userContent,
+                availableObjects,
+                String(roomId),
+                selectedObjectId,
+                roomContext,
+                hasExistingImage
+              );
               console.log('Parsed instruction:', JSON.stringify(parsedInstruction, null, 2));
 
               const tasks = await buildKleinTasks(parsedInstruction, previousImage);
@@ -191,6 +228,29 @@ export async function POST(request: Request) {
     const modelMessages = await convertToModelMessages(messages);
     console.log('Model messages count:', modelMessages.length);
 
+    // Build image context for system prompt
+    let imageContext = undefined;
+    if (roomId) {
+      const roomImages = getRoomImagesByRoomId(Number(roomId));
+      if (roomImages.length > 0) {
+        const latestImage = roomImages[0];
+        let detectedObjects: string[] = [];
+        if (latestImage.detected_items && latestImage.detected_items !== 'null') {
+          try {
+            const parsed = JSON.parse(latestImage.detected_items);
+            detectedObjects = Array.isArray(parsed) ? parsed.map((obj: any) => obj.label || obj.name || 'object') : [];
+          } catch { }
+        }
+        imageContext = {
+          hasImage: true,
+          imageUrl: latestImage.url,
+          prompt: latestImage.prompt,
+          detectedObjects,
+        };
+        console.log('Image context for system prompt:', { hasImage: true, objectCount: detectedObjects.length });
+      }
+    }
+
     // Create AI tools with project context
     const tools = createAiTools(projectId, roomId, preferences);
     console.log('Tools available:', Object.keys(tools));
@@ -200,7 +260,7 @@ export async function POST(request: Request) {
 
     const result = streamText({
       model: anthropic('claude-sonnet-4-20250514'),
-      system: getSystemPrompt(project, currentRoom ?? null),
+      system: getSystemPrompt(project, currentRoom ?? null, imageContext),
       messages: modelMessages,
       tools,
       stopWhen: stepCountIs(5), // Allow up to 5 tool execution rounds

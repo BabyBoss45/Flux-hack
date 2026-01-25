@@ -221,7 +221,18 @@ export function buildStructuredImagePrompt(
   return enhancePrompt(basePrompt);
 }
 
-export function getSystemPrompt(project: Project, currentRoom: Room | null): string {
+export interface RoomImageContext {
+  hasImage: boolean;
+  imageUrl?: string;
+  prompt?: string;
+  detectedObjects?: string[];
+}
+
+export function getSystemPrompt(
+  project: Project,
+  currentRoom: Room | null,
+  imageContext?: RoomImageContext
+): string {
   const preferences = project.global_preferences
     ? JSON.parse(project.global_preferences)
     : {};
@@ -229,6 +240,21 @@ export function getSystemPrompt(project: Project, currentRoom: Room | null): str
   let prompt = `You are an expert interior designer AI assistant helping design the "${project.name}" project.
 
 ${currentRoom ? `You are currently working on the "${currentRoom.name}" (${currentRoom.type}).` : 'No room is currently selected.'}`;
+
+  // Add current image context if available
+  if (imageContext?.hasImage && currentRoom) {
+    prompt += `\n\n## Current Room Image
+This room ALREADY HAS a generated design image. You can see it in the viewer.
+- The image shows the current design for this ${currentRoom.type}
+${imageContext.prompt ? `- Original prompt: "${imageContext.prompt}"` : ''}
+${imageContext.detectedObjects && imageContext.detectedObjects.length > 0 
+  ? `- Detected furniture/objects: ${imageContext.detectedObjects.join(', ')}`
+  : '- Objects in image: table, chairs, cabinets, lighting fixtures, and other typical room elements'}
+
+IMPORTANT: You do NOT need the user to upload or share an image - the image is already available.
+When the user asks to change something (like "change the table color to white"), proceed directly with the edit.
+Do NOT ask for the image - it's already there. Just confirm what change you're making and do it.`;
+  }
 
   // Add project preferences if they exist
   if (project.building_type || project.architecture_style || project.atmosphere) {

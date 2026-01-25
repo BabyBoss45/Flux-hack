@@ -1,9 +1,8 @@
 /**
  * PDF Generator for Furniture Shopping List
- * Creates a fancy PDF with images, descriptions, colors, and prices
+ * Uses browser print API - no external dependencies
  */
 
-import jsPDF from 'jspdf';
 import type { FurnitureObject, RoomAnalysis } from '@/components/finalize/room-shopping-card';
 
 interface RoomData {
@@ -14,58 +13,6 @@ interface RoomData {
 }
 
 export async function generateShoppingListPDF(rooms: RoomData[], projectName: string = 'My Design Project') {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
-
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 20;
-  const contentWidth = pageWidth - 2 * margin;
-  
-  let yPosition = margin;
-  let currentPage = 1;
-
-  // Helper function to check if we need a new page
-  const checkNewPage = (requiredSpace: number) => {
-    if (yPosition + requiredSpace > pageHeight - margin) {
-      doc.addPage();
-      currentPage++;
-      yPosition = margin;
-      return true;
-    }
-    return false;
-  };
-
-  // Helper function to add page number
-  const addPageNumber = () => {
-    doc.setFontSize(8);
-    doc.setTextColor(150, 150, 150);
-    doc.text(
-      `Page ${currentPage}`,
-      pageWidth / 2,
-      pageHeight - 10,
-      { align: 'center' }
-    );
-  };
-
-  // Title Page
-  doc.setFillColor(10, 10, 10);
-  doc.rect(0, 0, pageWidth, 60, 'F');
-  
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(28);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Furniture Shopping List', pageWidth / 2, 30, { align: 'center' });
-  
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'normal');
-  doc.text(projectName, pageWidth / 2, 45, { align: 'center' });
-  
-  yPosition = 80;
-
   // Calculate totals
   let grandTotal = 0;
   let totalItems = 0;
@@ -89,225 +36,375 @@ export async function generateShoppingListPDF(rooms: RoomData[], projectName: st
     }
   });
 
-  // Summary Box
-  doc.setFillColor(245, 245, 245);
-  doc.roundedRect(margin, yPosition, contentWidth, 40, 3, 3, 'F');
-  
-  doc.setTextColor(50, 50, 50);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Summary', margin + 5, yPosition + 8);
-  
-  doc.setFontSize(12);
-  doc.text(`Total Items: ${totalItems}`, margin + 5, yPosition + 18);
-  doc.text(`Items with Pricing: ${totalPricedItems}`, margin + 5, yPosition + 26);
-  
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(218, 165, 32); // Gold color
-  doc.text(
-    `Estimated Total: $${grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    margin + 5,
-    yPosition + 36
-  );
-  
-  yPosition += 50;
-
-  // Process each room
   const analyzedRooms = rooms.filter((r) => r.analysis.status === 'success');
+
+  // Build HTML content
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${projectName} - Shopping List</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    @page {
+      size: A4;
+      margin: 15mm;
+    }
+    
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+      .page-break { page-break-before: always; }
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0a;
+      color: #fff;
+      padding: 20px;
+      line-height: 1.4;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      border-radius: 12px;
+      padding: 30px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    
+    .header .project-name {
+      font-size: 16px;
+      color: rgba(255,255,255,0.6);
+    }
+    
+    .summary {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .summary-stats {
+      display: flex;
+      gap: 32px;
+    }
+    
+    .stat {
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #fff;
+    }
+    
+    .stat-label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .grand-total {
+      text-align: right;
+    }
+    
+    .grand-total .label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      text-transform: uppercase;
+    }
+    
+    .grand-total .amount {
+      font-size: 32px;
+      font-weight: 700;
+      color: #22c55e;
+    }
+    
+    .room {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    
+    .room-header {
+      background: rgba(255,255,255,0.05);
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    
+    .room-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+    }
+    
+    .room-style {
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+      font-style: italic;
+    }
+    
+    .room-total {
+      font-size: 16px;
+      font-weight: 600;
+      color: #22c55e;
+    }
+    
+    .room-image {
+      width: 100%;
+      max-height: 300px;
+      object-fit: cover;
+    }
+    
+    .items {
+      padding: 12px;
+    }
+    
+    .item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    
+    .item:last-child {
+      margin-bottom: 0;
+    }
+    
+    .color-swatch {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .item-details {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .item-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+    
+    .item-category {
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    
+    .item-description {
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      margin-top: 4px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    
+    .item-meta {
+      font-size: 10px;
+      color: rgba(255,255,255,0.3);
+      margin-top: 4px;
+    }
+    
+    .item-price {
+      text-align: right;
+      flex-shrink: 0;
+    }
+    
+    .price-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #22c55e;
+    }
+    
+    .price-source {
+      font-size: 10px;
+      color: rgba(255,255,255,0.4);
+    }
+    
+    .no-price {
+      font-size: 12px;
+      color: rgba(255,255,255,0.3);
+      font-style: italic;
+    }
+    
+    .print-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #22c55e;
+      color: #000;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      z-index: 1000;
+    }
+    
+    .print-btn:hover {
+      background: #16a34a;
+    }
+    
+    .footer {
+      text-align: center;
+      padding: 20px;
+      color: rgba(255,255,255,0.3);
+      font-size: 12px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <button class="print-btn no-print" onclick="window.print()">📄 Save as PDF</button>
   
-  for (let roomIndex = 0; roomIndex < analyzedRooms.length; roomIndex++) {
-    const room = analyzedRooms[roomIndex];
+  <div class="header">
+    <h1>🛋️ Furniture Shopping List</h1>
+    <div class="project-name">${escapeHtml(projectName)}</div>
+  </div>
+  
+  <div class="summary">
+    <div class="summary-stats">
+      <div class="stat">
+        <div class="stat-value">${totalItems}</div>
+        <div class="stat-label">Total Items</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">${totalPricedItems}</div>
+        <div class="stat-label">With Pricing</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">${analyzedRooms.length}</div>
+        <div class="stat-label">Rooms</div>
+      </div>
+    </div>
+    <div class="grand-total">
+      <div class="label">Estimated Total</div>
+      <div class="amount">$${grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+    </div>
+  </div>
+  
+  ${analyzedRooms.map((room, idx) => {
+    if (!room.analysis.objects || room.analysis.objects.length === 0) return '';
     
-    if (!room.analysis.objects || room.analysis.objects.length === 0) continue;
-
-    checkNewPage(80);
-
-    // Room Header
-    doc.setFillColor(240, 240, 240);
-    doc.rect(margin, yPosition, contentWidth, 15, 'F');
-    
-    doc.setTextColor(30, 30, 30);
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text(room.roomName, margin + 5, yPosition + 10);
-    
-    // Room style
-    if (room.analysis.overall_style) {
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(100, 100, 100);
-      doc.text(room.analysis.overall_style, pageWidth - margin - 5, yPosition + 10, { align: 'right' });
-    }
-    
-    yPosition += 20;
-
-    // Add room image if available
-    if (room.imageUrl) {
-      try {
-        // Load image and add to PDF
-        const imgData = await loadImageAsDataURL(room.imageUrl);
-        const imgWidth = contentWidth;
-        const imgHeight = (imgWidth * 9) / 16; // 16:9 aspect ratio
-        
-        doc.addImage(imgData, 'JPEG', margin, yPosition, imgWidth, imgHeight);
-        yPosition += imgHeight + 5;
-      } catch (error) {
-        console.error('Failed to load room image:', error);
-        // Continue without image
-      }
-    }
-
-    // Calculate room total
     let roomTotal = 0;
     room.analysis.objects.forEach((obj) => {
       if (obj.product?.price) {
         const priceMatch = obj.product.price.match(/\$?([\d,]+\.?\d*)/);
         if (priceMatch) {
           const priceValue = parseFloat(priceMatch[1].replace(',', ''));
-          if (!isNaN(priceValue)) {
-            roomTotal += priceValue;
-          }
+          if (!isNaN(priceValue)) roomTotal += priceValue;
         }
       }
     });
-
-    // Room total
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(218, 165, 32);
-    doc.text(
-      `Room Total: $${roomTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      margin + 5,
-      yPosition
-    );
-    yPosition += 8;
-
-    // Items
-    for (let i = 0; i < room.analysis.objects.length; i++) {
-      const item = room.analysis.objects[i];
-      
-      checkNewPage(45);
-
-      // Item card background
-      doc.setFillColor(252, 252, 252);
-      doc.roundedRect(margin, yPosition, contentWidth, 40, 2, 2, 'F');
-      
-      // Color swatch
-      const hexColor = item.primary_color || '#CCCCCC';
-      const rgb = hexToRgb(hexColor);
-      doc.setFillColor(rgb.r, rgb.g, rgb.b);
-      doc.roundedRect(margin + 3, yPosition + 3, 15, 15, 2, 2, 'F');
-      
-      // Item name
-      doc.setTextColor(30, 30, 30);
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text(item.name, margin + 22, yPosition + 10);
-      
-      // Category
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(120, 120, 120);
-      doc.text(item.category || 'furniture', margin + 22, yPosition + 16);
-      
-      // Description
-      if (item.description) {
-        doc.setFontSize(8);
-        doc.setTextColor(100, 100, 100);
-        const descLines = doc.splitTextToSize(item.description, contentWidth - 30);
-        doc.text(descLines.slice(0, 2), margin + 22, yPosition + 21);
-      }
-      
-      // Color hex
-      doc.setFontSize(8);
-      doc.setTextColor(150, 150, 150);
-      doc.text(`Color: ${hexColor}`, margin + 22, yPosition + 30);
-      
-      // Style tags
-      if (item.style_tags && item.style_tags.length > 0) {
-        const tags = item.style_tags.slice(0, 3).join(', ');
-        doc.text(`Style: ${tags}`, margin + 22, yPosition + 35);
-      }
-      
-      // Price (right side)
-      if (item.product?.price) {
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(34, 197, 94); // Green
-        doc.text(item.product.price, pageWidth - margin - 5, yPosition + 12, { align: 'right' });
-        
-        // Source
-        if (item.product.source) {
-          doc.setFontSize(8);
-          doc.setFont('helvetica', 'normal');
-          doc.setTextColor(120, 120, 120);
-          doc.text(`via ${item.product.source}`, pageWidth - margin - 5, yPosition + 18, { align: 'right' });
-        }
-      } else {
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'italic');
-        doc.setTextColor(150, 150, 150);
-        doc.text('Price not available', pageWidth - margin - 5, yPosition + 12, { align: 'right' });
-      }
-      
-      yPosition += 45;
-    }
     
-    yPosition += 5;
-  }
+    return `
+      <div class="room ${idx > 0 ? 'page-break' : ''}">
+        <div class="room-header">
+          <div>
+            <div class="room-name">${escapeHtml(room.roomName)}</div>
+            ${room.analysis.overall_style ? `<div class="room-style">${escapeHtml(room.analysis.overall_style)}</div>` : ''}
+          </div>
+          <div class="room-total">$${roomTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+        </div>
+        ${room.imageUrl ? `<img class="room-image" src="${room.imageUrl}" alt="${escapeHtml(room.roomName)}" crossorigin="anonymous" />` : ''}
+        <div class="items">
+          ${room.analysis.objects.map((item) => `
+            <div class="item">
+              <div class="color-swatch" style="background-color: ${item.primary_color || '#666'}"></div>
+              <div class="item-details">
+                <div class="item-name">${escapeHtml(item.name)}</div>
+                <div class="item-category">${escapeHtml(item.category || 'furniture')}</div>
+                ${item.description ? `<div class="item-description">${escapeHtml(item.description)}</div>` : ''}
+                <div class="item-meta">
+                  Color: ${item.primary_color || 'N/A'}
+                  ${item.style_tags && item.style_tags.length > 0 ? ` • Style: ${item.style_tags.slice(0, 3).join(', ')}` : ''}
+                </div>
+              </div>
+              <div class="item-price">
+                ${item.product?.price 
+                  ? `<div class="price-value">${item.product.price}</div>
+                     ${item.product.source ? `<div class="price-source">via ${escapeHtml(item.product.source)}</div>` : ''}`
+                  : '<div class="no-price">Price not available</div>'
+                }
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('')}
+  
+  <div class="footer">
+    Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+  </div>
+</body>
+</html>
+  `;
 
-  // Add page numbers to all pages
-  const totalPages = doc.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    currentPage = i;
-    addPageNumber();
+  // Open in new window for printing
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
+  if (printWindow) {
+    printWindow.document.write(html);
+    printWindow.document.close();
+    
+    // Wait for images to load then trigger print
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.focus();
+      }, 500);
+    };
+  } else {
+    // Fallback: download as HTML file
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_shopping_list.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
-
-  // Save the PDF
-  const fileName = `${projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_shopping_list.pdf`;
-  doc.save(fileName);
 }
 
-// Helper function to load image as data URL
-async function loadImageAsDataURL(url: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Failed to get canvas context'));
-        return;
-      }
-      
-      ctx.drawImage(img, 0, 0);
-      const dataURL = canvas.toDataURL('image/jpeg', 0.8);
-      resolve(dataURL);
-    };
-    
-    img.onerror = () => {
-      reject(new Error('Failed to load image'));
-    };
-    
-    img.src = url;
-  });
-}
-
-// Helper function to convert hex to RGB
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result
-    ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16),
-      }
-    : { r: 200, g: 200, b: 200 };
+// Helper function to escape HTML
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }

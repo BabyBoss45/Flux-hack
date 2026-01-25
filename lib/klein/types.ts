@@ -19,9 +19,25 @@ export type ObjectRecognitionResponse = {
   }>;
 };
 
+export type RoomContext = {
+  name: string;
+  type: string;
+  geometry?: {
+    length_ft?: number;
+    width_ft?: number;
+    area_sqft?: number;
+  };
+  doors?: Array<{ position?: string; width?: number }>;
+  windows?: Array<{ position?: string; size?: string }>;
+  fixtures?: string[];
+  adjacentRooms?: string[];
+};
+
 export type ParsedInstruction = {
-  intent: 'generate_room' | 'edit_objects';
+  intent: 'generate_room' | 'edit_objects' | 'regenerate_room';
   roomId?: string;
+  roomContext?: RoomContext;
+  userPrompt?: string;
   edits?: {
     target: string;
     action: 'modify' | 'replace';
@@ -35,11 +51,12 @@ export type ParsedInstruction = {
 };
 
 export type KleinTask = {
-  taskType: 'imageGeneration' | 'imageInpainting';
+  taskType: 'imageGeneration' | 'imageInpainting' | 'imageToImage';
   model: 'flux-2.0-klein';
   prompt: string;
   image?: string;
   mask?: string;
+  strength?: number;
   imageSize: '1024x1024';
 };
 
