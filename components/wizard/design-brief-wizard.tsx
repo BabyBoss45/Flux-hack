@@ -82,10 +82,18 @@ export function DesignBriefWizard({
     onStateChange?.(state);
   }, [state, onStateChange]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom with smooth behavior
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      // Use requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTo({
+            top: scrollRef.current.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      });
     }
   }, [messages, isTyping]);
 
@@ -342,7 +350,7 @@ export function DesignBriefWizard({
   }, [messages, confirmMultiSelect, state]);
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full max-h-full flex flex-col overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3 flex-shrink-0 border-b border-[rgba(0,255,157,0.1)] bg-[rgba(0,255,157,0.02)]">
         <div className="w-8 h-8 rounded-lg bg-[rgba(0,255,157,0.1)] border border-[rgba(0,255,157,0.25)] flex items-center justify-center">
           <Sparkles className="w-4 h-4 text-[#00ff9d]" />
@@ -353,7 +361,7 @@ export function DesignBriefWizard({
       {/* Messages area - scrollable */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0"
+        className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 max-h-full"
       >
         {messages.map((message) => (
           <div

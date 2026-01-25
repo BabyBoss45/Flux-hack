@@ -499,17 +499,17 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             </div>
 
             {/* Main content - 2 column layout with fixed height */}
-            <div className="flex-1 grid lg:grid-cols-2 gap-8 min-h-0 max-h-[calc(100vh-180px)] overflow-hidden">
-              {/* Left: Upload panel - larger */}
-              <div className="flex flex-col min-h-0 overflow-hidden">
-                <div className="panel flex-1 flex flex-col overflow-hidden">
+            <div className="grid lg:grid-cols-2 gap-8 h-[calc(100vh-200px)] max-h-[710px]">
+              {/* Left: Upload panel - fixed height */}
+              <div className="h-full overflow-hidden">
+                <div className="panel h-full flex flex-col overflow-hidden">
                   <div className="px-6 py-5 border-b border-[rgba(0,255,157,0.1)]">
                     <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                       <Upload className="w-5 h-5 text-[#00ff9d]" />
                       Add Your Space
                     </h2>
                   </div>
-                  <div className="flex-1 p-6 overflow-y-auto">
+                  <div className="flex-1 p-6 overflow-y-auto min-h-0 max-h-full">
                     {!setupMode ? (
                       <div className="grid gap-4 h-full">
                         <button
@@ -579,17 +579,15 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 </div>
               </div>
 
-              {/* Right: Design Brief Wizard - larger with better styling */}
-              <div className="flex flex-col min-h-0">
-                <div className="panel flex-1 flex flex-col overflow-hidden">
-                  <div className="flex-1 overflow-hidden">
-                    <DesignBriefWizard
-                      projectId={projectId}
-                      onComplete={handleWizardComplete}
-                      hasFloorPlan={!!project.floor_plan_url}
-                      roomCount={rooms.length}
-                    />
-                  </div>
+              {/* Right: Design Brief Wizard - fixed height */}
+              <div className="h-full overflow-hidden">
+                <div className="panel h-full flex flex-col overflow-hidden">
+                  <DesignBriefWizard
+                    projectId={projectId}
+                    onComplete={handleWizardComplete}
+                    hasFloorPlan={!!project.floor_plan_url}
+                    roomCount={rooms.length}
+                  />
                 </div>
               </div>
             </div>
@@ -694,7 +692,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               )}
 
               {/* Chat panel - takes remaining space */}
-              <div className="flex-1 min-h-0 panel overflow-hidden flex flex-col">
+              <div className="flex-1 min-h-0 panel flex flex-col">
                 <ChatWrapper
                   projectId={projectId}
                   roomId={selectedRoomId}

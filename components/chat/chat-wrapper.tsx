@@ -104,7 +104,7 @@ export function ChatWrapper({ projectId, roomId, selectedObjectId, placeholder, 
   if (isLoadingMessages) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="animate-spin w-6 h-6 border-2 border-accent-warm border-t-transparent rounded-full" />
+        <div className="animate-spin w-6 h-6 border-2 border-[#00ff9d] border-t-transparent rounded-full shadow-[0_0_10px_rgba(0,255,157,0.3)]" />
       </div>
     );
   }
