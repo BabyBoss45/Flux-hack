@@ -42,3 +42,6 @@ next-env.d.ts
 
 # uploads
 /public/uploads
+sqlite.db-shm
+sqlite.db-wal
+sqlite.db
