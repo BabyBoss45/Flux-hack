@@ -342,16 +342,16 @@ export function DesignBriefWizard({
   }, [messages, confirmMultiSelect, state]);
 
   return (
-    <div className="panel h-full flex flex-col overflow-hidden">
-      <div className="panel-header flex items-center gap-2 flex-shrink-0">
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="px-5 py-4 flex items-center gap-2 flex-shrink-0 border-b border-white/[0.06]">
         <Sparkles className="w-5 h-5 text-accent-warm" />
-        <h2 className="text-lg font-semibold text-white">Design Brief</h2>
+        <h2 className="text-base font-semibold text-white">Design Brief</h2>
       </div>
 
-      {/* Messages area */}
+      {/* Messages area - scrollable */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0"
+        className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0"
       >
         {messages.map((message) => (
           <div

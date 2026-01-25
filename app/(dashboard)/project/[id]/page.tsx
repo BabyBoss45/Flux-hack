@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Settings, Share2, Upload, Edit3, Check, Image, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Settings, Share2, Upload, Edit3, Check, Image as ImageIcon, ShoppingCart, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/header';
 import { RoomGrid } from '@/components/rooms/room-grid';
@@ -17,6 +17,8 @@ import { FloorPlanToggle } from '@/components/floorplan/floor-plan-toggle';
 import { PreferencesDialog } from '@/components/project/preferences-dialog';
 import { ShareDialog } from '@/components/project/share-dialog';
 import { ImageGeneration } from '@/components/ui/ai-chat-image-generation-1';
+import { DesignBriefWizard } from '@/components/wizard/design-brief-wizard';
+import type { WizardSummaryData } from '@/lib/wizard/types';
 
 interface Project {
   id: number;
@@ -62,6 +64,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [isGenerating, setIsGenerating] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [selectedObject, setSelectedObject] = useState<{ id: string; label: string } | null>(null);
+  const [briefExpanded, setBriefExpanded] = useState(false);
 
   // Calculate current step
   const allRoomsApproved = rooms.length > 0 && rooms.every((r) => r.approved);
@@ -243,7 +246,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     setSelectedRoomId(roomId);
   };
 
-  const handleUploadComplete = (data: {
+  const handleUploadComplete = async (data: {
     floor_plan_url: string;
     annotated_floor_plan_url: string;
     rooms: any[];
@@ -257,7 +260,55 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         annotated_floor_plan_url: data.annotated_floor_plan_url,
       });
     }
-    // Reload to show detected rooms
+    
+    // Auto-generate images for detected rooms using existing preferences
+    const existingPrefs = project?.global_preferences 
+      ? JSON.parse(project.global_preferences) 
+      : {};
+    
+    if (data.rooms && data.rooms.length > 0 && existingPrefs.architectureStyle) {
+      console.log('[Upload] Auto-generating images for', data.rooms.length, 'detected rooms');
+      
+      const style = existingPrefs.architectureStyle || 'modern';
+      const atmosphere = existingPrefs.atmosphere || 'elegant';
+      const buildingType = existingPrefs.buildingType || 'apartment';
+      const constraintsText = existingPrefs.constraints?.join(', ') || '';
+      const customNotes = existingPrefs.customNotes || '';
+      
+      for (const room of data.rooms) {
+        // Skip utility rooms
+        const utilityTypes = ['closet', 'storage', 'utility', 'laundry', 'garage', 'hallway', 'corridor'];
+        const roomType = room.type || room.room_type || '';
+        if (utilityTypes.some(t => roomType.toLowerCase().includes(t))) {
+          console.log('[Upload] Skipping utility room:', room.name);
+          continue;
+        }
+        
+        const prompt = `A ${style} ${roomType} in a ${buildingType}, ${atmosphere} atmosphere. ${constraintsText ? `Design considerations: ${constraintsText}.` : ''} ${customNotes ? `Additional notes: ${customNotes}` : ''} Professional interior design photography, high quality, detailed.`;
+        
+        console.log('[Upload] Generating image for room:', room.name);
+        
+        // Generate image and wait
+        try {
+          const res = await fetch(`/api/rooms/${room.id}/generate-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              description: prompt,
+              viewType: 'perspective',
+            }),
+          });
+          if (res.ok) {
+            console.log('[Upload] Image generated for:', room.name);
+          }
+        } catch (err) {
+          console.error('[Upload] Error generating image for:', room.name, err);
+        }
+      }
+      console.log('[Upload] All images generated');
+    }
+    
+    // Reload to show detected rooms with images
     window.location.reload();
   };
 
@@ -282,11 +333,84 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     setEditDialogOpen(true);
   };
 
-  const handleObjectSelect = (object: { id: string; label: string; category: string; bbox: [number, number, number, number] }) => {
+  const handleObjectSelect = (object: { id: string; label: string; category?: string; bbox?: [number, number, number, number] }) => {
     setSelectedObject({ id: object.id, label: object.label });
     
     // Auto-focus chat input and prepend object context
     // The chat placeholder will show "Editing [object]..." which guides the user
+  };
+
+  // Handle wizard completion - save preferences and auto-generate images for all rooms
+  const handleWizardComplete = async (data: WizardSummaryData) => {
+    console.log('[Wizard] Complete with data:', data);
+    
+    // Save preferences to project
+    const preferences = {
+      buildingType: data.buildingType,
+      architectureStyle: data.architectureStyle,
+      atmosphere: data.atmosphere,
+      constraints: data.constraints,
+      customNotes: data.customNotes,
+    };
+    
+    await fetch(`/api/projects/${projectId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ global_preferences: JSON.stringify(preferences) }),
+    });
+
+    if (project) {
+      setProject({ ...project, global_preferences: JSON.stringify(preferences) });
+    }
+
+    // If rooms exist, auto-generate images for each room
+    if (rooms.length > 0) {
+      console.log('[Wizard] Auto-generating images for', rooms.length, 'rooms');
+      
+      // Build prompt from preferences
+      const style = data.architectureStyle || 'modern';
+      const atmosphere = data.atmosphere || 'elegant';
+      const buildingType = data.buildingType || 'apartment';
+      const constraintsText = data.constraints?.join(', ') || '';
+      const customNotes = data.customNotes || '';
+      
+      // Generate images for each room (don't await - let them run in background)
+      for (const room of rooms) {
+        // Skip utility rooms
+        const utilityTypes = ['closet', 'storage', 'utility', 'laundry', 'garage', 'hallway', 'corridor'];
+        if (utilityTypes.some(t => room.type.toLowerCase().includes(t))) {
+          console.log('[Wizard] Skipping utility room:', room.name);
+          continue;
+        }
+        
+        const prompt = `A ${style} ${room.type} in a ${buildingType}, ${atmosphere} atmosphere. ${constraintsText ? `Design considerations: ${constraintsText}.` : ''} ${customNotes ? `Additional notes: ${customNotes}` : ''} Professional interior design photography, high quality, detailed.`;
+        
+        console.log('[Wizard] Generating image for room:', room.name, 'with prompt:', prompt);
+        
+        // Generate image and wait for it
+        try {
+          const res = await fetch(`/api/rooms/${room.id}/generate-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              description: prompt,
+              viewType: 'perspective',
+            }),
+          });
+          if (res.ok) {
+            console.log('[Wizard] Image generated for:', room.name);
+          } else {
+            console.error('[Wizard] Failed to generate image for:', room.name);
+          }
+        } catch (err) {
+          console.error('[Wizard] Error generating image for:', room.name, err);
+        }
+      }
+      
+      console.log('[Wizard] All images generated, refreshing...');
+      // Refresh page to show Step 2 with images
+      window.location.reload();
+    }
   };
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
@@ -306,98 +430,131 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     return null;
   }
 
-  // Step 1: Upload / Setup
+  // Step 1: Upload / Setup - Full width modern layout
   if (currentStep === 1) {
     return (
-      <div className="page-shell">
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
         <Header showSteps currentStep={1} />
 
-        <main className="page-main">
-          <div className="max-w-4xl mx-auto">
-            <Link
-              href="/"
-              className="inline-flex items-center text-sm text-white/60 hover:text-white mb-4"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to projects
-            </Link>
-
-            <h1 className="text-2xl font-bold text-white mb-6">{project.name}</h1>
-
-            <div className="grid lg:grid-cols-2 gap-6">
-              {/* Left: Upload panel */}
-              <div className="panel">
-                <div className="panel-header">
-                  <h2 className="text-lg font-semibold text-white">Add Your Space</h2>
+        <main className="flex-1 flex overflow-hidden">
+          {/* Full width container */}
+          <div className="w-full max-w-[1920px] mx-auto px-6 lg:px-12 py-6 flex flex-col">
+            {/* Header row */}
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-6">
+                <Link
+                  href="/"
+                  className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </Link>
+                <div>
+                  <h1 className="text-2xl font-bold text-white tracking-tight">{project.name}</h1>
+                  <p className="text-sm text-white/40 mt-0.5">Configure your space and design preferences</p>
                 </div>
-                <div className="panel-body">
-                  {!setupMode ? (
-                    <div className="grid gap-4">
-                      <button
-                        onClick={() => setSetupMode('upload')}
-                        className="p-6 border border-white/20 rounded-lg hover:border-accent-warm hover:bg-accent-warm/10 transition-colors text-left"
-                      >
-                        <Upload className="w-8 h-8 mb-4 text-accent-warm" />
-                        <h3 className="font-semibold mb-2 text-white">Upload Floor Plan</h3>
-                        <p className="text-sm text-white/60">
-                          Upload a PDF or image of your floor plan and we&apos;ll detect the rooms
-                        </p>
-                      </button>
+              </div>
+            </div>
 
-                      <button
-                        onClick={() => setSetupMode('manual')}
-                        className="p-6 border border-white/20 rounded-lg hover:border-accent-warm hover:bg-accent-warm/10 transition-colors text-left"
-                      >
-                        <Edit3 className="w-8 h-8 mb-4 text-accent-warm" />
-                        <h3 className="font-semibold mb-2 text-white">Enter Manually</h3>
-                        <p className="text-sm text-white/60">
-                          Manually enter the rooms in your space
-                        </p>
-                      </button>
-                    </div>
-                  ) : setupMode === 'upload' ? (
-                    <div>
-                      <Button
-                        variant="ghost"
-                        onClick={() => setSetupMode(null)}
-                        className="mb-4 text-white/80 hover:text-white hover:bg-white/10"
-                      >
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        Back
-                      </Button>
-                      <ServiceStatusBanner />
-                      <FloorplanUploader
-                        projectId={projectId}
-                        onUploadComplete={handleUploadComplete}
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <Button
-                        variant="ghost"
-                        onClick={() => setSetupMode(null)}
-                        className="mb-4 text-white/80 hover:text-white hover:bg-white/10"
-                      >
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        Back
-                      </Button>
-                      <ManualRoomEntry
-                        projectId={projectId}
-                        onComplete={handleRoomsDetected}
-                      />
-                    </div>
-                  )}
+            {/* Main content - 2 column layout with fixed height */}
+            <div className="flex-1 grid lg:grid-cols-2 gap-8 min-h-0 max-h-[calc(100vh-180px)] overflow-hidden">
+              {/* Left: Upload panel - larger */}
+              <div className="flex flex-col min-h-0 overflow-hidden">
+                <div className="bg-[#111] border border-white/[0.06] rounded-2xl flex-1 flex flex-col overflow-hidden">
+                  <div className="px-6 py-5 border-b border-white/[0.06]">
+                    <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <Upload className="w-5 h-5 text-accent-warm" />
+                      Add Your Space
+                    </h2>
+                  </div>
+                  <div className="flex-1 p-6 overflow-y-auto">
+                    {!setupMode ? (
+                      <div className="grid gap-4 h-full">
+                        <button
+                          onClick={() => setSetupMode('upload')}
+                          className="group relative p-8 border border-white/[0.08] rounded-2xl hover:border-accent-warm/50 hover:bg-gradient-to-br hover:from-accent-warm/5 hover:to-transparent transition-all duration-300 text-left flex flex-col"
+                        >
+                          <div className="w-14 h-14 rounded-2xl bg-accent-warm/10 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+                            <Upload className="w-7 h-7 text-accent-warm" />
+                          </div>
+                          <h3 className="text-lg font-semibold mb-2 text-white">Upload Floor Plan</h3>
+                          <p className="text-sm text-white/50 leading-relaxed">
+                            Upload a PDF or image of your floor plan and we&apos;ll automatically detect all rooms
+                          </p>
+                          <div className="mt-auto pt-4">
+                            <span className="text-xs text-accent-warm/70 font-medium">Recommended</span>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => setSetupMode('manual')}
+                          className="group relative p-8 border border-white/[0.08] rounded-2xl hover:border-white/20 hover:bg-white/[0.02] transition-all duration-300 text-left flex flex-col"
+                        >
+                          <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+                            <Edit3 className="w-7 h-7 text-white/60" />
+                          </div>
+                          <h3 className="text-lg font-semibold mb-2 text-white">Enter Manually</h3>
+                          <p className="text-sm text-white/50 leading-relaxed">
+                            Manually enter the rooms in your space if you don&apos;t have a floor plan
+                          </p>
+                        </button>
+                      </div>
+                    ) : setupMode === 'upload' ? (
+                      <div className="h-full flex flex-col">
+                        <Button
+                          variant="ghost"
+                          onClick={() => setSetupMode(null)}
+                          className="mb-6 text-white/60 hover:text-white hover:bg-white/5 w-fit -ml-2"
+                        >
+                          <ArrowLeft className="w-4 h-4 mr-2" />
+                          Back to options
+                        </Button>
+                        <ServiceStatusBanner />
+                        <div className="flex-1">
+                          <FloorplanUploader
+                            projectId={projectId}
+                            onUploadComplete={handleUploadComplete}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-full flex flex-col">
+                        <Button
+                          variant="ghost"
+                          onClick={() => setSetupMode(null)}
+                          className="mb-6 text-white/60 hover:text-white hover:bg-white/5 w-fit -ml-2"
+                        >
+                          <ArrowLeft className="w-4 h-4 mr-2" />
+                          Back to options
+                        </Button>
+                        <ManualRoomEntry
+                          projectId={projectId}
+                          onComplete={handleRoomsDetected}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Right: Chat panel for initial goals */}
-              <ChatWrapper
-                projectId={projectId}
-                roomId={selectedRoomId}
-                selectedObjectId={selectedObject?.id || null}
-                onImageGenerated={handleImageGenerated}
-                placeholder="Describe your design goals..."
-              />
+              {/* Right: Design Brief Wizard - larger with better styling */}
+              <div className="flex flex-col min-h-0">
+                <div className="bg-[#111] border border-white/[0.06] rounded-2xl flex-1 flex flex-col overflow-hidden">
+                  <div className="px-6 py-5 border-b border-white/[0.06]">
+                    <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <span className="text-xl">✨</span>
+                      Design Assistant
+                    </h2>
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <DesignBriefWizard
+                      projectId={projectId}
+                      onComplete={handleWizardComplete}
+                      hasFloorPlan={!!project.floor_plan_url}
+                      roomCount={rooms.length}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </main>
@@ -408,51 +565,99 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   // Step 2: Design
   if (currentStep === 2) {
     return (
-      <div className="page-shell">
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
         <Header showSteps currentStep={2} />
 
         <main className="flex-1 flex overflow-hidden">
-          {/* Constrained container with max-width and padding */}
-          <div className="w-full max-w-[1680px] mx-auto px-6 lg:px-8 pt-6 pb-8 flex flex-col lg:flex-row gap-6 lg:gap-8">
-            {/* Left column: Room selection + Chat (20% width, stacked) */}
-            <div className="w-full lg:w-[20%] flex flex-col min-w-0 gap-6 lg:gap-8">
-              {/* Room selector card - narrower */}
-              <div className="panel">
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="font-semibold text-white text-sm">{project.name}</h2>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setPreferencesOpen(true)}
-                      className="text-white/60 hover:text-white hover:bg-white/10 h-7 w-7 p-0"
-                    >
-                      <Settings className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                  <RoomGrid
-                    rooms={rooms.map((r) => ({ ...r, approved: r.approved === 1 }))}
-                    selectedRoomId={selectedRoomId}
-                    onSelectRoom={handleRoomSelect}
-                  />
+          {/* Full width container */}
+          <div className="w-full max-w-[1920px] mx-auto px-4 lg:px-8 py-4 flex gap-4 lg:gap-6 h-full">
+            {/* Left column: Room selection + Brief + Chat (fixed width) */}
+            <div className="w-[280px] flex-shrink-0 flex flex-col gap-4 overflow-hidden">
+              {/* Room selector card */}
+              <div className="bg-[#111] border border-white/[0.06] rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="font-semibold text-white text-sm truncate">{project.name}</h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setPreferencesOpen(true)}
+                    className="text-white/60 hover:text-white hover:bg-white/10 h-7 w-7 p-0 flex-shrink-0"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
+                <RoomGrid
+                  rooms={rooms.map((r) => ({ ...r, approved: r.approved === 1 }))}
+                  selectedRoomId={selectedRoomId}
+                  onSelectRoom={handleRoomSelect}
+                />
               </div>
 
-              {/* Floor plan viewer card - optional, shown if floor plan exists */}
-              {project.floor_plan_url && (
-                <div className="panel">
-                  <div className="p-4">
-                    <h3 className="font-semibold text-white text-sm mb-4">Floor Plan</h3>
-                    <FloorPlanToggle
-                      floorPlanUrl={project.floor_plan_url}
-                      annotatedFloorPlanUrl={project.annotated_floor_plan_url}
-                    />
+              {/* Collapsible Design Brief */}
+              <div className="bg-[#111] border border-white/[0.06] rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setBriefExpanded(!briefExpanded)}
+                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-accent-warm" />
+                    <span className="text-sm font-medium text-white">Design Brief</span>
                   </div>
+                  {briefExpanded ? (
+                    <ChevronDown className="w-4 h-4 text-white/40" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-white/40" />
+                  )}
+                </button>
+                {briefExpanded && (
+                  <div className="px-4 pb-4 space-y-2 border-t border-white/[0.06] pt-3">
+                    {preferences.architectureStyle && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-white/40">Style:</span>
+                        <span className="text-white/80">{preferences.architectureStyle}</span>
+                      </div>
+                    )}
+                    {preferences.atmosphere && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-white/40">Mood:</span>
+                        <span className="text-white/80">{preferences.atmosphere}</span>
+                      </div>
+                    )}
+                    {preferences.buildingType && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-white/40">Type:</span>
+                        <span className="text-white/80">{preferences.buildingType}</span>
+                      </div>
+                    )}
+                    {preferences.constraints?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {preferences.constraints.map((c: string) => (
+                          <span key={c} className="px-2 py-0.5 bg-white/5 rounded text-[10px] text-white/60">
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {!preferences.architectureStyle && (
+                      <p className="text-xs text-white/40 italic">No preferences set</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Floor plan viewer - collapsible */}
+              {project.floor_plan_url && (
+                <div className="bg-[#111] border border-white/[0.06] rounded-xl p-4">
+                  <h3 className="font-medium text-white text-xs mb-3 text-white/60">Floor Plan</h3>
+                  <FloorPlanToggle
+                    floorPlanUrl={project.floor_plan_url}
+                    annotatedFloorPlanUrl={project.annotated_floor_plan_url}
+                  />
                 </div>
               )}
 
-              {/* Chat panel card - stacked below room selection */}
-              <div className="flex flex-col min-h-0 flex-1">
+              {/* Chat panel - takes remaining space */}
+              <div className="flex-1 min-h-0 bg-[#111] border border-white/[0.06] rounded-xl overflow-hidden flex flex-col">
                 <ChatWrapper
                   projectId={projectId}
                   roomId={selectedRoomId}
@@ -469,43 +674,40 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               </div>
             </div>
 
-            {/* Right column: Room generation/image viewer (80% width) */}
-            <div className="w-full lg:w-[80%] flex flex-col min-w-0">
-              <div className="panel flex-1">
-                <div className="p-5">
-                  {/* CORRECT RULE: As soon as we have an imageUrl, show it. Animation only if generating AND no images yet. */}
-                  {roomImages.length > 0 ? (
-                    <div className="w-full flex items-center justify-center">
-                      {isImageLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
-                          <div className="text-center text-white/60 text-sm">Loading image...</div>
-                        </div>
-                      )}
-                      <RoomImageViewer
-                        images={roomImages}
-                        currentIndex={currentImageIndex}
-                        onIndexChange={setCurrentImageIndex}
-                        onObjectSelect={handleObjectSelect}
-                        selectedObjectId={selectedObject?.id || null}
-                        onImageLoad={() => setIsImageLoading(false)}
-                      />
-                    </div>
-                  ) : isGenerating ? (
-                    <ImageGeneration className="w-full">
-                      <div className="flex items-center justify-center bg-white/5 rounded-lg" style={{ aspectRatio: '1/1', maxWidth: '1024px', maxHeight: '1024px', width: '100%' }}>
-                        <div className="text-center text-white/60 text-sm">
-                          Generating a new design for this room...
-                        </div>
+            {/* Right column: Room generation/image viewer (takes remaining space) */}
+            <div className="flex-1 min-w-0 flex flex-col">
+              <div className="bg-[#111] border border-white/[0.06] rounded-xl flex-1 flex items-center justify-center p-4 overflow-hidden">
+                {roomImages.length > 0 ? (
+                  <div className="w-full h-full flex items-center justify-center relative">
+                    {isImageLoading && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10 rounded-lg">
+                        <div className="text-center text-white/60 text-sm">Loading image...</div>
                       </div>
-                    </ImageGeneration>
-                  ) : (
-                    <div className="flex items-center justify-center bg-white/5 rounded-lg" style={{ aspectRatio: '1/1', maxWidth: '1024px', maxHeight: '1024px', width: '100%' }}>
+                    )}
+                    <RoomImageViewer
+                      images={roomImages}
+                      currentIndex={currentImageIndex}
+                      onIndexChange={setCurrentImageIndex}
+                      onObjectSelect={handleObjectSelect}
+                      selectedObjectId={selectedObject?.id || null}
+                      onImageLoad={() => setIsImageLoading(false)}
+                    />
+                  </div>
+                ) : isGenerating ? (
+                  <ImageGeneration className="w-full h-full max-w-[1024px]">
+                    <div className="flex items-center justify-center bg-white/5 rounded-xl w-full aspect-square max-h-full">
                       <div className="text-center text-white/60 text-sm">
-                        Describe how you want this room to look.
+                        Generating design for {selectedRoom?.name || 'this room'}...
                       </div>
                     </div>
-                  )}
-                </div>
+                  </ImageGeneration>
+                ) : (
+                  <div className="flex flex-col items-center justify-center bg-white/[0.02] rounded-xl w-full aspect-square max-w-[800px] max-h-full border border-dashed border-white/10">
+                    <ImageIcon className="w-12 h-12 text-white/20 mb-4" />
+                    <p className="text-white/40 text-sm mb-2">No design generated yet</p>
+                    <p className="text-white/30 text-xs">Use the chat to describe your vision</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -642,7 +844,7 @@ function RoomCard({
         </div>
       ) : (
         <div className="aspect-video bg-white/5 flex items-center justify-center">
-          <Image className="w-8 h-8 text-white/20" />
+          <ImageIcon className="w-8 h-8 text-white/20" />
         </div>
       )}
       <div className="p-4">
