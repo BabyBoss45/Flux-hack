@@ -2,7 +2,6 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import type { DetectedObject, ObjectRecognitionResponse } from './types';
-import { analyzeFurnitureWithLLM, mergeFurnitureAnalysis } from './furniture-enhancer';
 
 const ObjectRecognitionSchema = z.object({
   objects: z.array(
@@ -32,10 +31,7 @@ For each object, return:
 
 Return JSON only.`;
 
-export async function detectObjects(
-  imageUrl: string,
-  options?: { enhanceWithLLM?: boolean }
-): Promise<DetectedObject[] | null> {
+export async function detectObjects(imageUrl: string): Promise<DetectedObject[] | null> {
   if (!imageUrl) {
     return null;
   }
@@ -77,19 +73,6 @@ export async function detectObjects(
       category: obj.category,
       bbox: obj.bbox,
     }));
-
-    // Optionally enhance with Python LLM furniture analysis
-    if (options?.enhanceWithLLM && detectedObjects.length > 0) {
-      try {
-        const furnitureAnalysis = await analyzeFurnitureWithLLM(imageUrl);
-        if (furnitureAnalysis) {
-          return mergeFurnitureAnalysis(detectedObjects, furnitureAnalysis);
-        }
-      } catch (error) {
-        console.error('Failed to enhance with LLM analysis:', error);
-        // Continue with basic detection if enhancement fails
-      }
-    }
     
     // Return empty array only if detection succeeded but found no objects
     // Return null if detection failed
