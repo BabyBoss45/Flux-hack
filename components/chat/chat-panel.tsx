@@ -31,15 +31,7 @@ export function ChatPanel({
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
-      // Use requestAnimationFrame to ensure DOM has updated
-      requestAnimationFrame(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTo({
-            top: scrollRef.current.scrollHeight,
-            behavior: 'smooth'
-          });
-        }
-      });
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
 
@@ -110,16 +102,16 @@ export function ChatPanel({
   };
 
   return (
-    <div className="h-full max-h-full flex flex-col overflow-hidden">
-      <div className="px-4 py-3 flex items-center gap-2 border-b border-[rgba(0,255,157,0.1)] flex-shrink-0 bg-[rgba(0,255,157,0.02)]">
+    <div className="panel h-full flex flex-col max-h-[calc(100vh-120px)]">
+      <div className="panel-header flex items-center gap-2">
         <div className="w-2 h-2 rounded-full bg-[#00ff9d] shadow-[0_0_8px_rgba(0,255,157,0.6)]" />
-        <h2 className="text-sm font-semibold text-white">Design Assistant</h2>
+        <h2 className="text-lg font-semibold text-white">Design Assistant</h2>
       </div>
 
-      {/* Messages area - scrollable */}
+      {/* Messages area */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 max-h-full"
+        className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0"
       >
         {messages.length === 0 ? (
           <div className="text-center text-white/40 py-8">
