@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Settings, Share2, Upload, Edit3, Check, Image } from 'lucide-react';
+import { ArrowLeft, Settings, Share2, Upload, Edit3, Check, Image, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/header';
 import { RoomGrid } from '@/components/rooms/room-grid';
@@ -718,13 +718,21 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               <h1 className="text-2xl font-bold text-white">{project.name}</h1>
               <p className="text-white/60">Your design is complete!</p>
             </div>
-            <Button
-              onClick={() => setShareOpen(true)}
-              className="bg-accent-warm hover:bg-accent-warm/90"
-            >
-              <Share2 className="w-4 h-4 mr-2" />
-              Share Design
-            </Button>
+            <div className="flex items-center gap-3">
+              <Link href={`/project/${projectId}/finalize`}>
+                <Button className="bg-green-600 hover:bg-green-700">
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  Shop Furniture
+                </Button>
+              </Link>
+              <Button
+                onClick={() => setShareOpen(true)}
+                className="bg-accent-warm hover:bg-accent-warm/90"
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Share Design
+              </Button>
+            </div>
           </div>
 
           {/* Room gallery */}
