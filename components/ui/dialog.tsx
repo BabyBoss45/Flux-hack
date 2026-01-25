@@ -39,7 +39,9 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50",
+        // Dark backdrop with blur
+        "bg-[rgba(3,5,8,0.85)] backdrop-blur-sm",
         className
       )}
       {...props}
@@ -61,7 +63,23 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 outline-none sm:max-w-lg",
+          // Animation
+          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          // Position
+          "fixed top-[50%] left-[50%] z-50 translate-x-[-50%] translate-y-[-50%]",
+          // Size
+          "grid w-full max-w-[calc(100%-2rem)] sm:max-w-lg",
+          // Liquid glass effect
+          "bg-[rgba(13,17,23,0.9)] backdrop-blur-xl",
+          // Glowing green border
+          "border border-[rgba(0,255,157,0.2)]",
+          "shadow-[0_0_1px_rgba(0,255,157,0.4),0_0_30px_rgba(0,255,157,0.1),0_0_60px_rgba(0,255,157,0.05)]",
+          // Inner highlight
+          "before:absolute before:inset-0 before:rounded-lg before:pointer-events-none",
+          "before:bg-gradient-to-b before:from-[rgba(0,255,157,0.05)] before:to-transparent before:opacity-50",
+          // Spacing & shape
+          "gap-4 rounded-lg p-6",
+          "duration-200 outline-none",
           className
         )}
         {...props}
@@ -70,7 +88,15 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className={cn(
+              "absolute top-4 right-4 rounded-sm p-1",
+              "text-white/60 hover:text-[#00ff9d]",
+              "transition-all duration-200",
+              "hover:bg-[rgba(0,255,157,0.1)]",
+              "focus:outline-none focus:ring-1 focus:ring-[rgba(0,255,157,0.5)]",
+              "disabled:pointer-events-none",
+              "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            )}
           >
             <XIcon />
             <span className="sr-only">Close</span>
@@ -125,7 +151,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-lg leading-none font-semibold", className)}
+      className={cn("text-lg leading-none font-semibold text-white", className)}
       {...props}
     />
   )
@@ -138,7 +164,7 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-white/60 text-sm", className)}
       {...props}
     />
   )

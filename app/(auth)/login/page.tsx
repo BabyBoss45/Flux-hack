@@ -41,15 +41,18 @@ function LoginForm() {
   }
 
   return (
-    <div className="panel w-full max-w-md">
-      <div className="panel-header text-center">
-        <h1 className="text-2xl font-bold text-white">Welcome Back</h1>
-        <p className="text-white/60 mt-1">Sign in to your interior design studio</p>
+    <div className="panel w-full max-w-[40%] min-w-[400px]">
+      <div className="panel-header text-center pb-8">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-[#00ff9d] to-[#00cc7d] bg-clip-text text-transparent mb-3">
+          InteriorMaxi
+        </h1>
+        <h2 className="text-2xl font-semibold text-white mb-2">Welcome Back</h2>
+        <p className="text-lg text-white/50">Sign in to your interior design studio</p>
       </div>
-      <div className="panel-body">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium text-white/80">
+      <div className="panel-body pt-0">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-3">
+            <label htmlFor="email" className="text-base font-medium text-white/70">
               Email
             </label>
             <Input
@@ -59,26 +62,25 @@ function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="bg-white/5 border-white/10 text-white placeholder:text-white/40"
             />
           </div>
 
           {error && (
-            <p className="text-sm text-destructive">{error}</p>
+            <p className="text-base text-[#ff3b5c]">{error}</p>
           )}
 
           <Button
             type="submit"
-            className="w-full bg-accent-warm hover:bg-accent-warm/90"
+            className="w-full h-12 text-lg font-semibold"
             disabled={loading}
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-white/50">
+        <p className="mt-8 text-center text-base text-white/40">
           Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-accent-warm hover:underline">
+          <Link href="/register" className="text-[#00ff9d] hover:text-[#00ffaa] hover:underline transition-colors font-medium">
             Create one
           </Link>
         </p>
@@ -89,8 +91,10 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Suspense fallback={<div className="animate-pulse text-white/50">Loading...</div>}>
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <Suspense fallback={
+        <div className="text-[#00ff9d]/50 animate-pulse">Loading...</div>
+      }>
         <LoginForm />
       </Suspense>
     </div>

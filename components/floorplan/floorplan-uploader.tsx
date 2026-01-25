@@ -174,8 +174,10 @@ export function FloorplanUploader({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={`
-            border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer
-            ${isDragging ? 'border-accent-warm bg-accent-warm/10' : 'border-white/20 hover:border-white/40'}
+            border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 cursor-pointer
+            ${isDragging 
+              ? 'border-[#00ff9d] bg-[rgba(0,255,157,0.1)] shadow-[0_0_30px_rgba(0,255,157,0.15)]' 
+              : 'border-[rgba(0,255,157,0.2)] hover:border-[rgba(0,255,157,0.4)] hover:bg-[rgba(0,255,157,0.03)]'}
           `}
         >
           <input
@@ -186,14 +188,16 @@ export function FloorplanUploader({
             onChange={handleFileSelect}
           />
           <label htmlFor="floorplan-upload" className="cursor-pointer">
-            <Upload className="w-12 h-12 mx-auto mb-4 text-white/40" />
+            <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-[rgba(0,255,157,0.1)] border border-[rgba(0,255,157,0.2)] flex items-center justify-center">
+              <Upload className="w-8 h-8 text-[#00ff9d]" />
+            </div>
             <p className="text-lg font-medium mb-2 text-white">
               Drop your floor plan here
             </p>
-            <p className="text-sm text-white/60 mb-4">
+            <p className="text-sm text-white/50 mb-4">
               or click to browse
             </p>
-            <p className="text-xs text-white/40">
+            <p className="text-xs text-white/30">
               Supports PDF, PNG, JPG (max 20MB)
             </p>
           </label>
@@ -201,7 +205,7 @@ export function FloorplanUploader({
       ) : (
         <div className="space-y-4">
           {preview && (
-            <div className="relative aspect-video bg-white/5 rounded-lg overflow-hidden">
+            <div className="relative aspect-video bg-[rgba(0,255,157,0.03)] rounded-xl overflow-hidden border border-[rgba(0,255,157,0.15)]">
               <img
                 src={preview}
                 alt="Floor plan preview"
@@ -210,12 +214,14 @@ export function FloorplanUploader({
             </div>
           )}
 
-          <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10">
+          <div className="flex items-center justify-between p-3 bg-[rgba(255,255,255,0.03)] rounded-lg border border-[rgba(255,255,255,0.08)]">
             <div className="flex items-center gap-3">
-              <File className="w-5 h-5 text-white/60" />
+              <div className="w-10 h-10 rounded-lg bg-[rgba(0,255,157,0.1)] border border-[rgba(0,255,157,0.2)] flex items-center justify-center">
+                <File className="w-5 h-5 text-[#00ff9d]" />
+              </div>
               <div>
                 <p className="font-medium text-sm text-white">{file.name}</p>
-                <p className="text-xs text-white/50">
+                <p className="text-xs text-white/40">
                   {(file.size / 1024 / 1024).toFixed(2)} MB
                 </p>
               </div>
@@ -225,7 +231,6 @@ export function FloorplanUploader({
                 variant="ghost"
                 size="icon"
                 onClick={clearFile}
-                className="text-white/60 hover:text-white hover:bg-white/10"
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -233,21 +238,21 @@ export function FloorplanUploader({
           </div>
 
           {statusMessage && (
-            <div className="flex items-center gap-2 p-3 bg-white/5 rounded-lg border border-white/10">
-              {isProcessing && <Loader2 className="w-4 h-4 animate-spin text-accent-warm" />}
-              {status === 'complete' && <CheckCircle className="w-4 h-4 text-green-500" />}
+            <div className="flex items-center gap-3 p-3 bg-[rgba(0,255,157,0.05)] rounded-lg border border-[rgba(0,255,157,0.15)]">
+              {isProcessing && <Loader2 className="w-4 h-4 animate-spin text-[#00ff9d]" />}
+              {status === 'complete' && <CheckCircle className="w-4 h-4 text-[#00ff9d]" />}
               <p className="text-sm text-white">{statusMessage}</p>
             </div>
           )}
 
           {error && (
-            <div className="p-3 bg-destructive/10 border border-destructive/50 rounded-lg">
-              <p className="text-sm text-destructive">{error}</p>
+            <div className="p-3 bg-[rgba(255,59,92,0.1)] border border-[rgba(255,59,92,0.3)] rounded-lg">
+              <p className="text-sm text-[#ff3b5c]">{error}</p>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setStatus('idle')}
-                className="mt-2 text-white/60 hover:text-white"
+                className="mt-2"
               >
                 Try again
               </Button>
@@ -257,7 +262,7 @@ export function FloorplanUploader({
           {status === 'idle' && (
             <Button
               onClick={handleUpload}
-              className="w-full bg-accent-warm hover:bg-accent-warm/90"
+              className="w-full"
             >
               Upload & Analyze with AI
             </Button>

@@ -44,88 +44,95 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
-  /* Black Forest Labs color palette */
-  --color-forest-dark: #0a0f0a;
-  --color-forest-green: #1a2e1a;
-  --color-forest-accent: #2d4a2d;
-  --color-yellow-primary: #eab308;
-  --color-yellow-hover: #fbbf24;
-  --color-yellow-light: #fde047;
-  /* Dark theme surface colors */
-  --color-surface: #151a15;
-  --color-accent-warm: #eab308;
-  --color-accent-warm-hover: #fbbf24;
+  
+  /* Blade Runner Neon Green Palette */
+  --color-neon-green: #00ff9d;
+  --color-neon-green-dim: #00cc7d;
+  --color-neon-green-glow: rgba(0, 255, 157, 0.4);
+  --color-neon-green-subtle: rgba(0, 255, 157, 0.1);
+  --color-neon-cyan: #00f0ff;
+  
+  /* Dark surfaces */
+  --color-void: #030508;
+  --color-abyss: #0a0e14;
+  --color-surface: #0d1117;
+  --color-surface-elevated: #161b22;
+  
+  /* Glass effect colors */
+  --color-glass: rgba(13, 17, 23, 0.7);
+  --color-glass-border: rgba(0, 255, 157, 0.15);
+  --color-glass-highlight: rgba(255, 255, 255, 0.03);
 }
 
 :root {
   --radius: 0.625rem;
-  /* Interior design color palette */
-  --background: #faf9f7;
-  --foreground: #3d3d3d;
-  --card: #ffffff;
-  --card-foreground: #3d3d3d;
-  --popover: #ffffff;
-  --popover-foreground: #3d3d3d;
-  --primary: #627362;
-  --primary-foreground: #ffffff;
-  --secondary: #e6e2d8;
-  --secondary-foreground: #3d3d3d;
-  --muted: #f5f4f2;
-  --muted-foreground: #6b6b6b;
-  --accent: #e2704d;
-  --accent-foreground: #ffffff;
-  --destructive: #dc2626;
-  --border: #e5e5e5;
-  --input: #e5e5e5;
-  --ring: #627362;
-  --chart-1: #627362;
-  --chart-2: #e2704d;
-  --chart-3: #e6e2d8;
-  --chart-4: #8b9a8b;
-  --chart-5: #f0a080;
-  --sidebar: #f5f4f2;
-  --sidebar-foreground: #3d3d3d;
-  --sidebar-primary: #627362;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e6e2d8;
-  --sidebar-accent-foreground: #3d3d3d;
-  --sidebar-border: #e5e5e5;
-  --sidebar-ring: #627362;
+  /* Light mode - minimal, will mostly use dark */
+  --background: #030508;
+  --foreground: #e6edf3;
+  --card: rgba(13, 17, 23, 0.6);
+  --card-foreground: #e6edf3;
+  --popover: rgba(13, 17, 23, 0.95);
+  --popover-foreground: #e6edf3;
+  --primary: #00ff9d;
+  --primary-foreground: #030508;
+  --secondary: rgba(0, 255, 157, 0.1);
+  --secondary-foreground: #00ff9d;
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: rgba(230, 237, 243, 0.5);
+  --accent: #00ff9d;
+  --accent-foreground: #030508;
+  --destructive: #ff3b5c;
+  --border: rgba(0, 255, 157, 0.12);
+  --input: rgba(0, 255, 157, 0.08);
+  --ring: #00ff9d;
+  --chart-1: #00ff9d;
+  --chart-2: #00cc7d;
+  --chart-3: #00f0ff;
+  --chart-4: #0099ff;
+  --chart-5: #00ff9d;
+  --sidebar: rgba(10, 14, 20, 0.8);
+  --sidebar-foreground: #e6edf3;
+  --sidebar-primary: #00ff9d;
+  --sidebar-primary-foreground: #030508;
+  --sidebar-accent: rgba(0, 255, 157, 0.1);
+  --sidebar-accent-foreground: #00ff9d;
+  --sidebar-border: rgba(0, 255, 157, 0.1);
+  --sidebar-ring: #00ff9d;
 }
 
 .dark {
-  /* Black Forest Labs dark theme - deep forest green/black */
-  --background: #0a0f0a;
-  --foreground: #ffffff;
-  --card: #151a15;
-  --card-foreground: #ffffff;
-  --popover: #151a15;
-  --popover-foreground: #ffffff;
-  --primary: #eab308;
-  --primary-foreground: #000000;
-  --secondary: #1a2e1a;
-  --secondary-foreground: #ffffff;
-  --muted: #1a2e1a;
-  --muted-foreground: #a3a3a3;
-  --accent: #eab308;
-  --accent-foreground: #000000;
-  --destructive: #ef4444;
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.08);
-  --ring: #eab308;
-  --chart-1: #eab308;
-  --chart-2: #fbbf24;
-  --chart-3: #2d4a2d;
-  --chart-4: #4a6a4a;
-  --chart-5: #fde047;
-  --sidebar: #151a15;
-  --sidebar-foreground: #ffffff;
-  --sidebar-primary: #eab308;
-  --sidebar-primary-foreground: #000000;
-  --sidebar-accent: #1a2e1a;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #eab308;
+  /* Blade Runner Dark Theme */
+  --background: #030508;
+  --foreground: #e6edf3;
+  --card: rgba(13, 17, 23, 0.6);
+  --card-foreground: #e6edf3;
+  --popover: rgba(13, 17, 23, 0.95);
+  --popover-foreground: #e6edf3;
+  --primary: #00ff9d;
+  --primary-foreground: #030508;
+  --secondary: rgba(0, 255, 157, 0.1);
+  --secondary-foreground: #00ff9d;
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: rgba(230, 237, 243, 0.5);
+  --accent: #00ff9d;
+  --accent-foreground: #030508;
+  --destructive: #ff3b5c;
+  --border: rgba(0, 255, 157, 0.12);
+  --input: rgba(0, 255, 157, 0.08);
+  --ring: #00ff9d;
+  --chart-1: #00ff9d;
+  --chart-2: #00cc7d;
+  --chart-3: #00f0ff;
+  --chart-4: #0099ff;
+  --chart-5: #00ff9d;
+  --sidebar: rgba(10, 14, 20, 0.8);
+  --sidebar-foreground: #e6edf3;
+  --sidebar-primary: #00ff9d;
+  --sidebar-primary-foreground: #030508;
+  --sidebar-accent: rgba(0, 255, 157, 0.1);
+  --sidebar-accent-foreground: #00ff9d;
+  --sidebar-border: rgba(0, 255, 157, 0.1);
+  --sidebar-ring: #00ff9d;
 }
 
 @layer base {
@@ -134,12 +141,50 @@
   }
   body {
     @apply bg-background text-foreground;
-    background-image: 
-      radial-gradient(circle at 20% 50%, rgba(45, 74, 45, 0.15) 0%, transparent 50%),
-      radial-gradient(circle at 80% 80%, rgba(26, 46, 26, 0.2) 0%, transparent 50%),
-      radial-gradient(circle at 40% 20%, rgba(45, 74, 45, 0.1) 0%, transparent 50%);
+    /* Blade Runner atmospheric background */
+    background: 
+      /* Subtle scan lines */
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 255, 157, 0.01) 2px,
+        rgba(0, 255, 157, 0.01) 4px
+      ),
+      /* Green nebula glow top-left */
+      radial-gradient(ellipse 80% 50% at 10% 20%, rgba(0, 255, 157, 0.08) 0%, transparent 50%),
+      /* Cyan accent glow bottom-right */
+      radial-gradient(ellipse 60% 60% at 90% 80%, rgba(0, 240, 255, 0.05) 0%, transparent 50%),
+      /* Subtle green core glow center */
+      radial-gradient(ellipse 50% 50% at 50% 50%, rgba(0, 255, 157, 0.03) 0%, transparent 60%),
+      /* Deep void base */
+      linear-gradient(180deg, #030508 0%, #050a10 50%, #030508 100%);
     background-attachment: fixed;
-    background-size: 100% 100%;
+  }
+  
+  /* Custom scrollbar - cyberpunk style */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: rgba(0, 255, 157, 0.02);
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 157, 0.2);
+    border-radius: 3px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 157, 0.35);
+  }
+  
+  /* Text selection */
+  ::selection {
+    background: rgba(0, 255, 157, 0.3);
+    color: #fff;
   }
 }
 
@@ -153,35 +198,170 @@
     @apply flex-1 p-4 md:p-4 lg:p-6;
   }
 
-  /* Glass-morphism panel - Black Forest Labs style */
+  /* Liquid Glass Panel - Blade Runner style */
   .panel {
-    @apply bg-surface/90 backdrop-blur-md border border-white/8 rounded-xl;
-    background: linear-gradient(135deg, rgba(21, 26, 21, 0.95) 0%, rgba(26, 46, 26, 0.9) 100%);
+    @apply rounded-xl;
+    background: linear-gradient(
+      135deg,
+      rgba(13, 17, 23, 0.8) 0%,
+      rgba(10, 14, 20, 0.7) 50%,
+      rgba(13, 17, 23, 0.8) 100%
+    );
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid rgba(0, 255, 157, 0.15);
+    box-shadow: 
+      0 0 1px rgba(0, 255, 157, 0.3),
+      0 0 20px rgba(0, 255, 157, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 255, 157, 0.3) 20%,
+      rgba(0, 255, 157, 0.5) 50%,
+      rgba(0, 255, 157, 0.3) 80%,
+      transparent 100%
+    );
   }
 
   .panel-header {
-    @apply px-4 py-3 border-b border-white/8;
+    @apply px-4 py-3;
+    border-bottom: 1px solid rgba(0, 255, 157, 0.1);
+    background: rgba(0, 255, 157, 0.02);
   }
 
   .panel-body {
     @apply p-4;
   }
+  
+  /* Glowing widget effect */
+  .glow-widget {
+    @apply rounded-xl;
+    background: rgba(13, 17, 23, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 255, 157, 0.2);
+    box-shadow: 
+      0 0 0 1px rgba(0, 255, 157, 0.05),
+      0 0 15px rgba(0, 255, 157, 0.1),
+      0 0 30px rgba(0, 255, 157, 0.05);
+    transition: all 0.3s ease;
+  }
+  
+  .glow-widget:hover {
+    border-color: rgba(0, 255, 157, 0.35);
+    box-shadow: 
+      0 0 0 1px rgba(0, 255, 157, 0.1),
+      0 0 20px rgba(0, 255, 157, 0.15),
+      0 0 40px rgba(0, 255, 157, 0.08);
+  }
 
-  /* Chip/tag styling */
+  /* Chip/tag styling - cyberpunk */
   .chip {
     @apply inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full;
+    border: 1px solid rgba(0, 255, 157, 0.2);
+    background: rgba(0, 255, 157, 0.05);
   }
 
   .chip-muted {
-    @apply bg-white/8 text-white/60;
+    @apply text-white/60;
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
   }
 
   .chip-active {
-    @apply bg-yellow-primary text-black;
+    background: rgba(0, 255, 157, 0.15);
+    border-color: rgba(0, 255, 157, 0.4);
+    color: #00ff9d;
+    text-shadow: 0 0 10px rgba(0, 255, 157, 0.5);
   }
 
-  /* Button hover states with yellow accent */
+  /* Neon text glow */
+  .neon-text {
+    color: #00ff9d;
+    text-shadow: 
+      0 0 5px rgba(0, 255, 157, 0.5),
+      0 0 10px rgba(0, 255, 157, 0.3),
+      0 0 20px rgba(0, 255, 157, 0.2);
+  }
+  
+  /* Accent warm now uses green */
+  .bg-accent-warm {
+    background: linear-gradient(135deg, #00ff9d 0%, #00cc7d 100%);
+    color: #030508;
+    font-weight: 500;
+  }
+  
   .bg-accent-warm:hover {
-    background-color: var(--color-yellow-hover) !important;
+    background: linear-gradient(135deg, #00ffaa 0%, #00dd8d 100%);
+    box-shadow: 0 0 20px rgba(0, 255, 157, 0.4);
+  }
+  
+  /* Animated pulse glow */
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 
+        0 0 0 1px rgba(0, 255, 157, 0.1),
+        0 0 15px rgba(0, 255, 157, 0.1);
+    }
+    50% {
+      box-shadow: 
+        0 0 0 1px rgba(0, 255, 157, 0.2),
+        0 0 25px rgba(0, 255, 157, 0.2);
+    }
+  }
+  
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  
+  /* Scan line overlay for extra cyberpunk feel */
+  .scanlines::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.1) 2px,
+      rgba(0, 0, 0, 0.1) 4px
+    );
+    pointer-events: none;
+    opacity: 0.3;
+  }
+}
+
+/* Focus styles with green glow */
+@layer utilities {
+  .focus-glow:focus,
+  .focus-glow:focus-visible {
+    outline: none;
+    border-color: rgba(0, 255, 157, 0.5) !important;
+    box-shadow: 
+      0 0 0 1px rgba(0, 255, 157, 0.3),
+      0 0 15px rgba(0, 255, 157, 0.2),
+      0 0 30px rgba(0, 255, 157, 0.1) !important;
+  }
+  
+  .glass-subtle {
+    background: rgba(13, 17, 23, 0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 }

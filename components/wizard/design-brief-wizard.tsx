@@ -343,8 +343,10 @@ export function DesignBriefWizard({
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="px-5 py-4 flex items-center gap-2 flex-shrink-0 border-b border-white/[0.06]">
-        <Sparkles className="w-5 h-5 text-accent-warm" />
+      <div className="px-5 py-4 flex items-center gap-3 flex-shrink-0 border-b border-[rgba(0,255,157,0.1)] bg-[rgba(0,255,157,0.02)]">
+        <div className="w-8 h-8 rounded-lg bg-[rgba(0,255,157,0.1)] border border-[rgba(0,255,157,0.25)] flex items-center justify-center">
+          <Sparkles className="w-4 h-4 text-[#00ff9d]" />
+        </div>
         <h2 className="text-base font-semibold text-white">Design Brief</h2>
       </div>
 
@@ -363,11 +365,11 @@ export function DesignBriefWizard({
           >
             {message.type === 'bot' && (
               <div className="flex gap-3">
-                <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-3.5 h-3.5 text-white" />
+                <div className="w-7 h-7 rounded-lg bg-[rgba(0,255,157,0.15)] border border-[rgba(0,255,157,0.3)] flex items-center justify-center flex-shrink-0">
+                  <Bot className="w-3.5 h-3.5 text-[#00ff9d]" />
                 </div>
                 <div className="flex-1 max-w-[90%] space-y-3">
-                  <div className="bg-white/5 rounded-lg px-3 py-2">
+                  <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] rounded-lg px-3 py-2">
                     <p className="text-sm text-white/90 whitespace-pre-wrap">{message.content}</p>
                   </div>
                   
@@ -445,7 +447,6 @@ export function DesignBriefWizard({
                         <div className="mt-4 flex items-center gap-2">
                           <Button
                             onClick={() => confirmMultiSelect(message.id)}
-                            className="bg-accent-warm hover:bg-accent-warm/90 text-black"
                           >
                             Continue
                             <ArrowRight className="w-4 h-4 ml-2" />
@@ -459,7 +460,7 @@ export function DesignBriefWizard({
             )}
 
             {message.type === 'user' && (
-              <div className="bg-accent-warm text-black rounded-lg px-3 py-2 max-w-[80%]">
+              <div className="bg-gradient-to-r from-[#00ff9d] to-[#00cc7d] text-[#030508] rounded-lg px-3 py-2 max-w-[80%]">
                 <p className="text-sm font-medium">{message.content}</p>
               </div>
             )}
@@ -469,14 +470,14 @@ export function DesignBriefWizard({
         {/* Typing indicator */}
         {isTyping && (
           <div className="flex gap-3">
-            <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-              <Bot className="w-3.5 h-3.5 text-white" />
+            <div className="w-7 h-7 rounded-lg bg-[rgba(0,255,157,0.15)] border border-[rgba(0,255,157,0.3)] flex items-center justify-center flex-shrink-0">
+              <Bot className="w-3.5 h-3.5 text-[#00ff9d]" />
             </div>
-            <div className="bg-white/5 rounded-lg px-4 py-2">
+            <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] rounded-lg px-4 py-2">
               <div className="flex gap-1">
-                <span className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <span className="w-2 h-2 bg-[#00ff9d]/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 bg-[#00ff9d]/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 bg-[#00ff9d]/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -485,7 +486,7 @@ export function DesignBriefWizard({
 
       {/* Custom input area (only shown for constraints step) */}
       {showCustomField && (
-        <div className="border-t border-white/10 p-3 flex-shrink-0">
+        <div className="border-t border-[rgba(0,255,157,0.1)] p-3 flex-shrink-0">
           <div className="flex gap-2 items-end">
             <div className="flex-1 relative">
               <Textarea
@@ -498,12 +499,12 @@ export function DesignBriefWizard({
                   }
                 }}
                 placeholder="Add custom requirement (optional)..."
-                className="min-h-[44px] max-h-[100px] resize-none bg-white/5 border-white/10 text-white placeholder:text-white/40"
+                className="min-h-[44px] max-h-[100px] resize-none"
                 rows={1}
               />
             </div>
           </div>
-          <p className="text-xs text-white/40 mt-2 text-center">
+          <p className="text-xs text-white/30 mt-2 text-center">
             Select options above, then press Continue
           </p>
         </div>
