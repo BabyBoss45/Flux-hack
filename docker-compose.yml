@@ -16,6 +16,7 @@ services:
       - .env
     volumes:
       - interior-data:/app/data
+      - interior-uploads:/app/public/uploads
     depends_on:
       llm:
         condition: service_healthy
@@ -48,3 +49,5 @@ services:
 volumes:
   interior-data:
     name: interior-data
+  interior-uploads:
+    name: interior-uploads
