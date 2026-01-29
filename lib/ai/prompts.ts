@@ -361,19 +361,19 @@ export function buildImagePrompt(
   const customNotes = preferences.customNotes || preferences.custom_notes || '';
   
   // Parse room geometry and features
-  let geometry: any = {};
-  let doors: any[] = [];
-  let windows: any[] = [];
-  let fixtures: any[] = [];
-  let adjacentRooms: any[] = [];
-  
+  let geometry: Record<string, unknown> = {};
+  let doors: unknown[] = [];
+  let windows: unknown[] = [];
+  let fixtures: string[] = [];
+  let adjacentRooms: string[] = [];
+
   try {
     geometry = room.geometry ? JSON.parse(room.geometry) : {};
     doors = room.doors ? JSON.parse(room.doors) : [];
     windows = room.windows ? JSON.parse(room.windows) : [];
     fixtures = room.fixtures ? JSON.parse(room.fixtures) : [];
     adjacentRooms = room.adjacent_rooms ? JSON.parse(room.adjacent_rooms) : [];
-  } catch (e) {
+  } catch {
     // Fallback to empty if parsing fails
   }
 
@@ -403,7 +403,7 @@ export function buildImagePrompt(
   // 4. Natural lighting from windows
   if (windows.length > 0) {
     const windowCount = windows.length;
-    const windowPositions = windows.map((w: any) => w.position || w.location).filter(Boolean);
+    const windowPositions = windows.map((w) => (w as { position?: string; location?: string }).position || (w as { position?: string; location?: string }).location).filter(Boolean);
     if (windowPositions.length > 0) {
       parts.push(`. Natural light streaming through ${windowCount} ${windowCount === 1 ? 'window' : 'windows'} on the ${windowPositions.join(' and ')} side${windowCount > 1 ? 's' : ''}`);
     } else {
@@ -427,7 +427,7 @@ export function buildImagePrompt(
   // 7. Constraints and special requirements
   const constraintDetails: string[] = [];
   if (Array.isArray(constraints)) {
-    const constraintStrings = constraints.map((c: any) => String(c).toLowerCase());
+    const constraintStrings = constraints.map((c: unknown) => String(c).toLowerCase());
     if (constraintStrings.some(c => c.includes('kid-friendly') || c.includes('kid friendly'))) {
       constraintDetails.push('child-safe furniture with rounded edges');
     }

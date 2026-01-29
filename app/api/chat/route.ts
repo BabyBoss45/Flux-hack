@@ -2,7 +2,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { streamText, convertToModelMessages, stepCountIs } from 'ai';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
-import { getProjectById, getRoomById, createMessage, createRoomMessage, getRoomImagesByRoomId, createRoomImage, updateRoomImageItems } from '@/lib/db/queries';
+import { getProjectById, getRoomById, createMessage, createRoomMessage, getRoomImagesByRoomId } from '@/lib/db/queries';
 import { createAiTools } from '@/lib/ai/tools';
 import { getSystemPrompt } from '@/lib/ai/prompts';
 
@@ -56,14 +56,14 @@ export async function POST(request: Request) {
           userContent = lastMessage.content;
         } else if (Array.isArray(lastMessage.content)) {
           userContent = lastMessage.content
-            .filter((p: any) => p.type === 'text')
-            .map((p: any) => p.text)
+            .filter((p: { type: string }) => p.type === 'text')
+            .map((p: { type: string; text?: string }) => p.text || '')
             .join('');
         } else if (Array.isArray(lastMessage.parts)) {
           // Handle parts array format from frontend
           userContent = lastMessage.parts
-            .filter((p: any) => p.type === 'text')
-            .map((p: any) => p.text)
+            .filter((p: { type: string }) => p.type === 'text')
+            .map((p: { type: string; text?: string }) => p.text || '')
             .join('');
         }
 
@@ -96,7 +96,7 @@ export async function POST(request: Request) {
         if (latestImage.detected_items && latestImage.detected_items !== 'null') {
           try {
             const parsed = JSON.parse(latestImage.detected_items);
-            detectedObjects = Array.isArray(parsed) ? parsed.map((obj: any) => obj.label || obj.name || 'object') : [];
+            detectedObjects = Array.isArray(parsed) ? parsed.map((obj: { label?: string; name?: string }) => obj.label || obj.name || 'object') : [];
           } catch { }
         }
         imageContext = {
@@ -155,14 +155,17 @@ export async function POST(request: Request) {
         let toolInvocations = undefined;
 
         if (toolCalls && toolCalls.length > 0) {
-          toolInvocations = toolCalls.map((call: any, index: number) => {
-            const toolResult = toolResults?.[index] as any;
+          toolInvocations = toolCalls.map((call, index) => {
+            const toolResult = toolResults?.[index];
+            // Access properties safely - toolCalls can be typed or dynamic
+            const callObj = call as { toolCallId: string; toolName: string; args?: unknown };
+            const resultObj = toolResult as { result?: unknown } | undefined;
             return {
               state: 'result' as const,
-              toolCallId: call.toolCallId,
-              toolName: call.toolName,
-              args: call.args,
-              result: toolResult?.result ?? null,
+              toolCallId: callObj.toolCallId,
+              toolName: callObj.toolName,
+              args: callObj.args,
+              result: resultObj?.result ?? null,
             };
           });
         }

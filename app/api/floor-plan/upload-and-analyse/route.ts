@@ -9,7 +9,7 @@ export const maxDuration = 240; // 4 minute timeout (increased to allow for LLM 
 
 interface SSEEvent {
   event: string;
-  data: any;
+  data: Record<string, unknown>;
 }
 
 function formatSSE(event: SSEEvent): string {

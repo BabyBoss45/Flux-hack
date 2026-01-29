@@ -96,7 +96,7 @@ export async function POST(
       ...(body.atmosphere ? { atmosphere: body.atmosphere } : {}),
       ...(body.constraints ? { constraints: body.constraints } : {}),
       ...(body.customNotes ? { customNotes: body.customNotes } : {}),
-    } as Record<string, any>;
+    } as Record<string, string>;
 
     // Build the final prompt using existing helper
     const prompt = buildImagePrompt(body.description, room, mergedPreferences);

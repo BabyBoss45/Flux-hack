@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 // Test script to verify BFL API key works
 require('dotenv').config();
 

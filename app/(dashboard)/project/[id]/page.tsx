@@ -191,7 +191,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   };
 
   // REQUIREMENT 1: Handle image generation from chat - IMMEDIATE state update
-  const handleImageGenerated = async (imageUrl: string, detectedObjects: any[]) => {
+  const handleImageGenerated = async (imageUrl: string, detectedObjects: unknown[]) => {
     // REQUIREMENT 2: Handle detectedObjects correctly - null means not detected, [] means empty
     const detectedItemsJson = Array.isArray(detectedObjects) && detectedObjects.length > 0
       ? JSON.stringify(detectedObjects)
@@ -240,7 +240,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             setCurrentImageIndex(0);
           }
         }
-      } catch (error) {
+      } catch {
         // Silent fail - we already have the image displayed
       }
     }, 1000);
@@ -281,7 +281,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             }
           }
         }
-      } catch (error) {
+      } catch {
         // Silently fail polling
       }
     }, 2000); // Poll every 2 seconds
@@ -296,7 +296,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const handleUploadComplete = async (data: {
     floor_plan_url: string;
     annotated_floor_plan_url: string;
-    rooms: any[];
+    rooms: { id: number; name: string; type?: string; room_type?: string }[];
     room_count: number;
     total_area_sqft: number;
   }) => {
@@ -310,7 +310,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     
     // Update rooms state immediately so wizard knows rooms are available
     if (data.rooms && data.rooms.length > 0) {
-      setRooms(data.rooms.map((r: any) => ({
+      setRooms(data.rooms.map((r) => ({
         id: r.id,
         name: r.name,
         type: r.type || r.room_type || 'room',
@@ -320,7 +320,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     
     // Fetch FRESH project data from API to get latest preferences
     // (the wizard may have saved preferences that aren't in our stale state)
-    let freshPrefs: any = {};
+    let freshPrefs: Record<string, unknown> = {};
     try {
       const projectRes = await fetch(`/api/projects/${projectId}`);
       if (projectRes.ok) {
@@ -337,12 +337,12 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     // Auto-generate images for detected rooms using FRESH preferences
     if (data.rooms && data.rooms.length > 0 && freshPrefs.architectureStyle) {
       console.log('[Upload] Auto-generating images for', data.rooms.length, 'detected rooms');
-      
-      const style = freshPrefs.architectureStyle || 'modern';
-      const atmosphere = freshPrefs.atmosphere || 'elegant';
-      const buildingType = freshPrefs.buildingType || 'apartment';
-      const constraintsText = freshPrefs.constraints?.join(', ') || '';
-      const customNotes = freshPrefs.customNotes || '';
+
+      const style = (freshPrefs.architectureStyle as string) || 'modern';
+      const atmosphere = (freshPrefs.atmosphere as string) || 'elegant';
+      const buildingType = (freshPrefs.buildingType as string) || 'apartment';
+      const constraintsText = Array.isArray(freshPrefs.constraints) ? freshPrefs.constraints.join(', ') : '';
+      const customNotes = (freshPrefs.customNotes as string) || '';
       
       for (const room of data.rooms) {
         // Skip utility rooms
@@ -426,7 +426,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             setCurrentImageIndex(0);
           }
         }
-      } catch (error) {
+      } catch {
         // Silent fail
       }
     }, 1000);

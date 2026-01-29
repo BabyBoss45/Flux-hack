@@ -138,6 +138,7 @@ export async function generateImage(params: GenerateImageParams): Promise<BFLJob
     throw new Error(`Runware API error: ${error}`);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data: any = await response.json();
 
   // Runware responses can be either:
@@ -196,6 +197,7 @@ export async function editImage(params: EditImageParams): Promise<BFLJobResponse
     throw new Error(`Runware API error: ${error}`);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data: any = await response.json();
 
   const root = Array.isArray(data) ? data[0] : data;

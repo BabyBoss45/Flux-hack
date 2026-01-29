@@ -43,9 +43,14 @@ export function ChatPanel({
     }
   }, [input]);
 
+  // Type for message parts
+  type MessagePart = { type: string; text?: string };
+  type ToolInvocation = { state?: string; result?: { success?: boolean; imageUrl?: string; imageId?: number; message?: string }; toolCallId?: string; toolName?: string };
+  type ExtendedMessage = UIMessage & { content?: string | MessagePart[]; parts?: MessagePart[]; toolInvocations?: ToolInvocation[] };
+
   // Extract text content from a message
   const getMessageText = (message: UIMessage): string => {
-    const msg = message as any;
+    const msg = message as ExtendedMessage;
 
     // Debug log
     if (msg.role === 'assistant') {
@@ -65,16 +70,16 @@ export function ChatPanel({
     // Handle parts array (from streaming)
     if (msg.parts && Array.isArray(msg.parts)) {
       return msg.parts
-        .filter((part: any) => part.type === 'text')
-        .map((part: any) => part.text)
+        .filter((part) => part.type === 'text')
+        .map((part) => part.text || '')
         .join('');
     }
 
     // Handle content array
     if (Array.isArray(msg.content)) {
-      return msg.content
-        .filter((part: any) => part.type === 'text')
-        .map((part: any) => part.text)
+      return (msg.content as MessagePart[])
+        .filter((part) => part.type === 'text')
+        .map((part) => part.text || '')
         .join('');
     }
 
@@ -83,7 +88,7 @@ export function ChatPanel({
 
   // Get tool invocations from message
   const getToolInvocations = (message: UIMessage) => {
-    return (message as any).toolInvocations || [];
+    return (message as ExtendedMessage).toolInvocations || [];
   };
 
   const handleSubmit = () => {
@@ -154,7 +159,7 @@ export function ChatPanel({
                   )}
 
                   {/* Render tool invocations */}
-                  {toolInvocations.map((invocation: any, index: any) => {
+                  {(toolInvocations as ToolInvocation[]).map((invocation, index) => {
                     // Show result if available
                     if (
                       invocation.state === 'result' &&

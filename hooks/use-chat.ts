@@ -3,7 +3,6 @@
 import { useChat as useAIChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import type { UIMessage } from 'ai';
-import { useEffect, useRef } from 'react';
 
 interface UseChatOptions {
   projectId: number;
@@ -11,14 +10,12 @@ interface UseChatOptions {
   selectedObjectId?: string | null;
   initialMessages?: UIMessage[];
   onError?: (error: Error) => void;
-  onImageGenerated?: (imageUrl: string, detectedObjects: any[]) => void;
+  onImageGenerated?: (imageUrl: string, detectedObjects: unknown[]) => void;
 }
 
 // Custom transport that intercepts response headers
 class ImageAwareChatTransport extends DefaultChatTransport<UIMessage> {
-  private onImageGenerated?: (imageUrl: string, detectedObjects: any[]) => void;
-
-  constructor(options: any) {
+  constructor(options: { api: string; body: Record<string, unknown>; onImageGenerated?: (imageUrl: string, detectedObjects: unknown[]) => void; fetch?: typeof fetch }) {
     const originalFetch = options.fetch || fetch;
     const onImageGenerated = options.onImageGenerated;
     
@@ -36,7 +33,7 @@ class ImageAwareChatTransport extends DefaultChatTransport<UIMessage> {
           try {
             const detectedObjects = detectedObjectsStr ? JSON.parse(detectedObjectsStr) : [];
             onImageGenerated(imageUrl, detectedObjects);
-          } catch (error) {
+          } catch {
             onImageGenerated(imageUrl, []);
           }
         }
@@ -44,7 +41,6 @@ class ImageAwareChatTransport extends DefaultChatTransport<UIMessage> {
         return response;
       },
     });
-    this.onImageGenerated = onImageGenerated;
   }
 }
 
@@ -64,6 +60,7 @@ export function useChat({ projectId, roomId, selectedObjectId, initialMessages, 
       console.error('Chat error:', error);
       onError?.(error);
     },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
 
   return {

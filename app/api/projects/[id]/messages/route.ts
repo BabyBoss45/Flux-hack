@@ -39,7 +39,7 @@ export async function GET(
     // Transform messages to AI SDK UIMessage format
     const formattedMessages = messages.map((msg) => {
       // Build the base message in UIMessage format
-      const message: any = {
+      const message: Record<string, unknown> = {
         id: msg.id.toString(),
         role: msg.role,
         content: msg.content || '',

@@ -457,12 +457,11 @@ export function addColorsToPalette(
   projectId: number,
   colors: { hex: string; name: string; sort_order?: number }[]
 ): void {
-  const db = require('./index').getDb();
-  const stmt = db.prepare(
-    'INSERT INTO color_palette (project_id, hex, name, sort_order) VALUES (?, ?, ?, ?)'
-  );
   for (const color of colors) {
-    stmt.run(projectId, color.hex, color.name, color.sort_order ?? 0);
+    execute(
+      'INSERT INTO color_palette (project_id, hex, name, sort_order) VALUES (?, ?, ?, ?)',
+      [projectId, color.hex, color.name, color.sort_order ?? 0]
+    );
   }
 }
 
@@ -480,7 +479,7 @@ export function updateProjectPreferences(
   }
 ): void {
   const updates: string[] = [];
-  const values: any[] = [];
+  const values: unknown[] = [];
 
   if (data.building_type !== undefined) {
     updates.push('building_type = ?');
