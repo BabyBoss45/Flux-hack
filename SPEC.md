@@ -194,8 +194,10 @@ tools: {
     // Returns image URL + detected items list
   },
   edit_room_image: {
-    // Calls Runware image editing API
-    // Routed through Klein system for intent parsing
+    // Calls Runware image editing API (inpainting)
+    // Uses seedImage + maskImage with bfl:1@2 (FLUX Pro) model
+    // Note: strength/width/height params not supported by fluxpro
+    // Alternative: Klein system for text-based intent parsing
     // Returns updated image URL + refreshed items list
   },
   scan_image_items: {
@@ -243,11 +245,16 @@ Klein is a specialized subsystem for parsing and executing image edit intents.
   - Color palette
   - Specific requests from conversation
 
-**Image Editing:**
+**Image Editing (Inpainting):**
 
-- Text-description only (no mask drawing UI)
-- User describes changes in natural language
-- Klein system parses intent and determines edit parameters
+- Canvas-based mask drawing UI for precise area selection
+- User draws mask on image, then describes desired changes
+- Uses Runware API with `seedImage` and `maskImage` parameters
+- Model: `bfl:1@2` (FLUX Pro) - inherits dimensions from seedImage automatically
+- **API Limitations (fluxpro architecture):**
+  - `strength` parameter not supported
+  - `width`/`height` parameters not supported (uses input image dimensions)
+- Alternative: Text-description edits via Klein system for natural language changes
 
 **Object Detection:**
 
@@ -609,6 +616,7 @@ Legend: ✓ Approved  ● Current  ○ Pending
 | `ManualRoomEntry`       | Fallback room entry form            |
 | `ChatWrapper/ChatPanel` | AI chat interface with streaming    |
 | `RoomImageViewer`       | Image gallery with object detection |
+| `CanvasEditor`          | Mask-based inpainting with drawing  |
 | `RoomSidebar/RoomGrid`  | Room navigation with status         |
 | `ItemEditDialog`        | Object editing modal                |
 | `PreferencesDialog`     | Global settings editor              |
@@ -672,7 +680,6 @@ Deployment architecture documented separately in `DEPLOYMENT.md`.
 - Full furniture purchasing (search only)
 - Cost estimation
 - Version history / undo
-- Mask-based image editing
 - Multiple aspect ratios (16:9 only)
 - User-selectable AI models
 - Multiple projects per share link
