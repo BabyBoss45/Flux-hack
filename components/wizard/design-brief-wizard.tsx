@@ -151,11 +151,14 @@ export function DesignBriefWizard({
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
-    
-    addBotMessage("Let's design your space ✨\n\nI'll ask a few quick questions — just tap your choice.", {
-      type: 'grid',
-      items: [{ label: 'Start', value: 'start', icon: '🚀' }],
-      columns: 2,
+
+    // Use microtask to avoid synchronous setState in effect
+    queueMicrotask(() => {
+      addBotMessage("Let's design your space ✨\n\nI'll ask a few quick questions — just tap your choice.", {
+        type: 'grid',
+        items: [{ label: 'Start', value: 'start', icon: '🚀' }],
+        columns: 2,
+      });
     });
   }, [addBotMessage]);
 
@@ -286,7 +289,7 @@ export function DesignBriefWizard({
         columns: 2,
       });
     }
-  }, [messages, customInput, addUserMessage, addBotMessage, saveToProject, hasFloorPlan, roomCount]);
+  }, [messages, customInput, addUserMessage, addBotMessage, saveToProject, hasFloorPlan, roomCount, state.buildingType, state.architectureStyle, state.atmosphere]);
 
   // Handle approve action - validates all inputs before proceeding
   const handleApprove = useCallback(() => {

@@ -3,7 +3,7 @@
  * Uses browser print API - no external dependencies
  */
 
-import type { FurnitureObject, RoomAnalysis } from '@/components/finalize/room-shopping-card';
+import type { RoomAnalysis } from '@/components/finalize/room-shopping-card';
 
 interface RoomData {
   roomId: number;

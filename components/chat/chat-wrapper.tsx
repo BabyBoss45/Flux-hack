@@ -12,7 +12,7 @@ interface ChatWrapperProps {
   placeholder?: string;
   onEditImage?: (imageId: number) => void;
   onLoadingChange?: (isLoading: boolean) => void;
-  onImageGenerated?: (imageUrl: string, detectedObjects: any[]) => void;
+  onImageGenerated?: (imageUrl: string, detectedObjects: unknown[]) => void;
 }
 
 function ChatInstance({
@@ -32,7 +32,7 @@ function ChatInstance({
   placeholder?: string;
   onEditImage?: (imageId: number) => void;
   onLoadingChange?: (isLoading: boolean) => void;
-  onImageGenerated?: (imageUrl: string, detectedObjects: any[]) => void;
+  onImageGenerated?: (imageUrl: string, detectedObjects: unknown[]) => void;
 }) {
   const { messages, isLoading: chatLoading, sendMessage, stop } = useChat({
     projectId,

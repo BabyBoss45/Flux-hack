@@ -22,7 +22,7 @@ export function getDb(): Database.Database {
       if (db) {
         try {
           db.close();
-        } catch (e) {
+        } catch {
           // Ignore close errors
         }
         db = null;
@@ -39,11 +39,11 @@ export function closeDb(): void {
       // Checkpoint WAL before closing to ensure data is written
       db.pragma('wal_checkpoint(FULL)');
       db.close();
-    } catch (error) {
+    } catch {
       // If checkpoint fails, still try to close
       try {
         db.close();
-      } catch (e) {
+      } catch {
         // Ignore close errors
       }
     } finally {
@@ -58,7 +58,7 @@ function checkpointIfNeeded(): void {
     try {
       db.pragma('wal_checkpoint(PASSIVE)');
       lastCheckpoint = Date.now();
-    } catch (error) {
+    } catch {
       // Ignore checkpoint errors - not critical
     }
   }

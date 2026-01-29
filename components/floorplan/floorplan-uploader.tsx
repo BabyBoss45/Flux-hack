@@ -4,12 +4,19 @@ import { useState, useCallback } from 'react';
 import { Upload, File, X, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+interface DetectedRoom {
+  id: number;
+  name: string;
+  type?: string;
+  room_type?: string;
+}
+
 interface FloorplanUploaderProps {
   projectId: number;
   onUploadComplete: (data: {
     floor_plan_url: string;
     annotated_floor_plan_url: string;
-    rooms: any[];
+    rooms: DetectedRoom[];
     room_count: number;
     total_area_sqft: number;
   }) => void;
