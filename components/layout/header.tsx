@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { signOut } from "@/lib/auth-client";
 
 interface HeaderProps {
   userName?: string;
@@ -26,7 +27,7 @@ export function Header({ userName, showSteps = false, currentStep = 1 }: HeaderP
   const router = useRouter();
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await signOut();
     router.push("/login");
     router.refresh();
   };

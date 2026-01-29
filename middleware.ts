@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { betterFetch } from '@better-fetch/fetch';
 
 // Public paths that don't require authentication
 const PUBLIC_PATHS = ['/login', '/register', '/share', '/api/share'];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public paths
@@ -21,10 +22,18 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for session cookie
-  const sessionCookie = request.cookies.get('session_user_id');
+  // Check for session using Better Auth
+  const { data: session } = await betterFetch<{ session: { id: string } | null }>(
+    '/api/auth/get-session',
+    {
+      baseURL: request.nextUrl.origin,
+      headers: {
+        cookie: request.headers.get('cookie') || '',
+      },
+    }
+  );
 
-  if (!sessionCookie?.value) {
+  if (!session?.session) {
     // Redirect to login if no session
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);

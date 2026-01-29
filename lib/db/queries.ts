@@ -2,15 +2,18 @@ import { queryOne, queryAll, execute, executeReturning } from './index';
 
 // Types
 export interface User {
-  id: number;
+  id: string;
   email: string;
   name: string;
-  created_at: string;
+  emailVerified: number;
+  image: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Project {
   id: number;
-  user_id: number;
+  user_id: string;
   name: string;
   floor_plan_url: string | null;
   annotated_floor_plan_url: string | null;
@@ -84,17 +87,17 @@ export interface RoomMessage {
 }
 
 // User queries
-export function getUserById(id: number): User | undefined {
-  return queryOne<User>('SELECT * FROM users WHERE id = ?', [id]);
+export function getUserById(id: string): User | undefined {
+  return queryOne<User>('SELECT * FROM user WHERE id = ?', [id]);
 }
 
 export function getUserByEmail(email: string): User | undefined {
-  return queryOne<User>('SELECT * FROM users WHERE email = ?', [email]);
+  return queryOne<User>('SELECT * FROM user WHERE email = ?', [email]);
 }
 
 export function createUser(email: string, name: string): User | undefined {
   return executeReturning<User>(
-    'INSERT INTO users (email, name) VALUES (?, ?) RETURNING *',
+    'INSERT INTO user (email, name) VALUES (?, ?) RETURNING *',
     [email, name]
   );
 }
@@ -104,7 +107,7 @@ export function getProjectById(id: number): Project | undefined {
   return queryOne<Project>('SELECT * FROM projects WHERE id = ?', [id]);
 }
 
-export function getProjectsByUserId(userId: number): Project[] {
+export function getProjectsByUserId(userId: string): Project[] {
   return queryAll<Project>(
     'SELECT * FROM projects WHERE user_id = ? ORDER BY updated_at DESC',
     [userId]
@@ -112,7 +115,7 @@ export function getProjectsByUserId(userId: number): Project[] {
 }
 
 export function createProject(
-  userId: number,
+  userId: string,
   name: string,
   floorPlanUrl?: string
 ): Project | undefined {

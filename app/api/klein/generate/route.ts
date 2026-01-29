@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth/mock-auth';
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth';
 import { getRoomById, getProjectById, getRoomImagesByRoomId, createRoomImage, updateRoomImageItems } from '@/lib/db/queries';
 import { parseUserIntent } from '@/lib/klein/parser';
 import { buildKleinTasks } from '@/lib/klein/task-builder';
@@ -11,7 +12,7 @@ export const maxDuration = 120;
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
