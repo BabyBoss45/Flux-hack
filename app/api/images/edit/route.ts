@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { createRoomImage, getRoomById } from "@/lib/db/queries";
-import { editImage } from "@/lib/bfl/client";
-import { pollForResult } from "@/lib/bfl/polling";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 
@@ -46,10 +44,12 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log("[edit] Starting inpaint request");
+    console.log("[edit] ========== INPUT ==========");
     console.log("[edit] prompt:", prompt);
-    console.log("[edit] image length:", image?.length);
-    console.log("[edit] mask length:", mask?.length);
+    console.log("[edit] cleanPrompt:", prompt.startsWith("[Inpaint]") ? prompt.replace("[Inpaint]", "").trim() : prompt);
+    console.log("[edit] image base64 length:", image?.length);
+    console.log("[edit] mask base64 length:", mask?.length);
+    console.log("[edit] roomId:", roomId);
 
     // Clean prompt - remove [Inpaint] prefix if present
     const cleanPrompt = prompt.startsWith("[Inpaint]")
@@ -57,6 +57,7 @@ export async function POST(request: Request) {
       : prompt;
 
     // Use Runware's direct API with imageInference + seedImage/maskImage for inpainting
+    // fluxpro model inherits dimensions from seedImage automatically
     const body = {
       taskType: "imageInference",
       taskUUID: crypto.randomUUID(),
@@ -66,11 +67,16 @@ export async function POST(request: Request) {
       maskImage: `data:image/png;base64,${mask}`,
       steps: 50,
       CFGScale: 60,
-      strength: 0.85,
       numberResults: 1,
       outputType: "URL",
       outputFormat: "PNG",
     };
+
+    console.log("[edit] Request body (without image data):", {
+      ...body,
+      seedImage: `[base64 data, length: ${image?.length}]`,
+      maskImage: `[base64 data, length: ${mask?.length}]`,
+    });
 
     console.log("[edit] Sending request to Runware API...");
 
@@ -93,10 +99,8 @@ export async function POST(request: Request) {
     }
 
     const data = await response.json();
-    console.log(
-      "[edit] Runware response:",
-      JSON.stringify(data).substring(0, 500),
-    );
+    console.log("[edit] ========== OUTPUT ==========");
+    console.log("[edit] Runware full response:", JSON.stringify(data, null, 2));
 
     // Parse the response - Runware has various response formats
     const root = Array.isArray(data) ? data[0] : data;
@@ -121,7 +125,8 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log("[edit] Got image URL:", imageUrl.substring(0, 100));
+    console.log("[edit] ========== RESULT ==========");
+    console.log("[edit] Got image URL:", imageUrl);
 
     // Save to database if roomId provided and room exists
     if (roomId) {

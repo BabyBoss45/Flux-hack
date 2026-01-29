@@ -94,8 +94,9 @@ export function CanvasEditor({
         e.preventDefault();
       }
 
-      // Space for panning
-      if (e.key === ' ' && !spacePressed) {
+      // Space for panning (only when not focused on an input)
+      const target = e.target as HTMLElement;
+      if (e.key === ' ' && !spacePressed && target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
         setSpacePressed(true);
         e.preventDefault();
       }
