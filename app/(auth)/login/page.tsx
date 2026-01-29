@@ -5,9 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { signIn } from '@/lib/auth-client';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -20,15 +22,13 @@ function LoginForm() {
     setError('');
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+      const { error: authError } = await signIn.email({
+        email,
+        password,
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Login failed');
+      if (authError) {
+        throw new Error(authError.message || 'Login failed');
       }
 
       router.push(redirect);
@@ -61,6 +61,20 @@ function LoginForm() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="space-y-3">
+            <label htmlFor="password" className="text-base font-medium text-white/70">
+              Password
+            </label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>

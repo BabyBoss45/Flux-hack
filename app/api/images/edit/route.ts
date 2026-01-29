@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/mock-auth";
 import { createRoomImage, getRoomById } from "@/lib/db/queries";
+import { editImage } from "@/lib/bfl/client";
+import { pollForResult } from "@/lib/bfl/polling";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 
 const RUNWARE_API_BASE = "https://api.runware.ai/v1";
 
@@ -18,7 +21,7 @@ export const maxDuration = 120;
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

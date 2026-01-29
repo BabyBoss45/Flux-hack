@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getSession } from '@/lib/auth/mock-auth';
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth';
 import { getProjectById, getMessagesByProjectId, getRoomMessagesByRoomId } from '@/lib/db/queries';
 
 export async function GET(
@@ -7,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session) {
       return new Response('Unauthorized', { status: 401 });
     }

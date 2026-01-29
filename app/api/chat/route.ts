@@ -1,7 +1,8 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { streamText, convertToModelMessages, stepCountIs } from 'ai';
-import { getSession } from '@/lib/auth/mock-auth';
-import { getProjectById, getRoomById, createMessage, createRoomMessage, getRoomImagesByRoomId } from '@/lib/db/queries';
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth';
+import { getProjectById, getRoomById, createMessage, createRoomMessage, getRoomImagesByRoomId, createRoomImage, updateRoomImageItems } from '@/lib/db/queries';
 import { createAiTools } from '@/lib/ai/tools';
 import { getSystemPrompt } from '@/lib/ai/prompts';
 
@@ -9,7 +10,7 @@ export const maxDuration = 120;
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session) {
       return new Response('Unauthorized', { status: 401 });
     }
