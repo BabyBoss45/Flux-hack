@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { editImage } from '@/lib/bfl/client';
 import { pollForResult } from '@/lib/bfl/polling';
-import { getSession } from '@/lib/auth/mock-auth';
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth';
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { checkJobStatus } from '@/lib/bfl/polling';
-import { getSession } from '@/lib/auth/mock-auth';
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth';
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ jobId: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

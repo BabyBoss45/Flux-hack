@@ -5,10 +5,29 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { signUp } from '@/lib/auth-client';
+
+function validatePassword(password: string): string | null {
+  if (password.length < 8) {
+    return 'Password must be at least 8 characters';
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'Password must contain at least one uppercase letter';
+  }
+  if (!/[a-z]/.test(password)) {
+    return 'Password must contain at least one lowercase letter';
+  }
+  if (!/[0-9]/.test(password)) {
+    return 'Password must contain at least one number';
+  }
+  return null;
+}
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -18,16 +37,30 @@ export default function RegisterPage() {
     setLoading(true);
     setError('');
 
+    // Validate password
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
+      setLoading(false);
+      return;
+    }
+
+    // Check passwords match
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name }),
+      const { error: authError } = await signUp.email({
+        email,
+        password,
+        name,
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Registration failed');
+      if (authError) {
+        throw new Error(authError.message || 'Registration failed');
       }
 
       router.push('/');
@@ -76,6 +109,36 @@ export default function RegisterPage() {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
+                className="h-12 text-base"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <label htmlFor="password" className="text-base font-medium text-white/70">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Min 8 chars, uppercase, lowercase, number"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="h-12 text-base"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <label htmlFor="confirmPassword" className="text-base font-medium text-white/70">
+                Confirm Password
+              </label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Confirm your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 className="h-12 text-base"
               />

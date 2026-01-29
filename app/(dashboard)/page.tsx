@@ -1,12 +1,17 @@
 import Link from 'next/link';
-import { Plus, Folder, Calendar, ArrowRight, Hexagon } from 'lucide-react';
-import { requireAuth } from '@/lib/auth/mock-auth';
+import { Plus, Folder, Calendar, ArrowRight } from 'lucide-react';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
 import { getProjectsByUserId } from '@/lib/db/queries';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/header';
 
 export default async function DashboardPage() {
-  const session = await requireAuth();
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    redirect('/login');
+  }
   const projects = getProjectsByUserId(session.user.id);
 
   return (

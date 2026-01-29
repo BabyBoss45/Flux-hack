@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { getSession } from '@/lib/auth/mock-auth';
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth';
 import {
   getProjectById,
   areAllRoomsApproved,
@@ -10,7 +11,7 @@ import {
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

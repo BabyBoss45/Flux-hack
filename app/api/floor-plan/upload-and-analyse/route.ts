@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth/mock-auth';
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth';
 import { saveFile, saveBase64Image } from '@/lib/storage/blob';
 import { updateProject, getProjectById, createRoom } from '@/lib/db/queries';
 import * as llmClient from '@/lib/llm/client';
@@ -17,7 +18,7 @@ function formatSSE(event: SSEEvent): string {
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

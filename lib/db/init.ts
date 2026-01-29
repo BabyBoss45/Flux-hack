@@ -2,28 +2,62 @@ import type Database from 'better-sqlite3';
 
 export function initializeDatabase(db: Database.Database): void {
   db.exec(`
-    -- Drop tables in reverse dependency order
-    DROP TABLE IF EXISTS shared_designs;
-    DROP TABLE IF EXISTS room_messages;
-    DROP TABLE IF EXISTS messages;
-    DROP TABLE IF EXISTS room_images;
-    DROP TABLE IF EXISTS rooms;
-    DROP TABLE IF EXISTS color_palette;
-    DROP TABLE IF EXISTS projects;
-    DROP TABLE IF EXISTS users;
-
-    -- Users table
-    CREATE TABLE users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- User table (Better Auth compatible - singular name)
+    CREATE TABLE IF NOT EXISTS user (
+      id TEXT PRIMARY KEY NOT NULL,
       email TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now'))
+      emailVerified INTEGER DEFAULT 0,
+      image TEXT,
+      createdAt TEXT DEFAULT (datetime('now')),
+      updatedAt TEXT DEFAULT (datetime('now'))
     );
 
-    -- Projects table (NEW COLUMNS: building_type, architecture_style, atmosphere)
-    CREATE TABLE projects (
+    -- Better Auth session table (singular name)
+    CREATE TABLE IF NOT EXISTS session (
+      id TEXT PRIMARY KEY NOT NULL,
+      userId TEXT NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      expiresAt TEXT NOT NULL,
+      ipAddress TEXT,
+      userAgent TEXT,
+      createdAt TEXT DEFAULT (datetime('now')),
+      updatedAt TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (userId) REFERENCES user(id) ON DELETE CASCADE
+    );
+
+    -- Better Auth account table (singular name)
+    CREATE TABLE IF NOT EXISTS account (
+      id TEXT PRIMARY KEY NOT NULL,
+      userId TEXT NOT NULL,
+      accountId TEXT NOT NULL,
+      providerId TEXT NOT NULL,
+      accessToken TEXT,
+      refreshToken TEXT,
+      accessTokenExpiresAt TEXT,
+      refreshTokenExpiresAt TEXT,
+      scope TEXT,
+      idToken TEXT,
+      password TEXT,
+      createdAt TEXT DEFAULT (datetime('now')),
+      updatedAt TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (userId) REFERENCES user(id) ON DELETE CASCADE
+    );
+
+    -- Better Auth verification table (singular name)
+    CREATE TABLE IF NOT EXISTS verification (
+      id TEXT PRIMARY KEY NOT NULL,
+      identifier TEXT NOT NULL,
+      value TEXT NOT NULL,
+      expiresAt TEXT NOT NULL,
+      createdAt TEXT DEFAULT (datetime('now')),
+      updatedAt TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Projects table
+    CREATE TABLE IF NOT EXISTS projects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
+      user_id TEXT NOT NULL,
       name TEXT NOT NULL,
       floor_plan_url TEXT,
       global_preferences TEXT DEFAULT '{}',
@@ -32,11 +66,11 @@ export function initializeDatabase(db: Database.Database): void {
       atmosphere TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
     );
 
-    -- Color palette table (NEW)
-    CREATE TABLE color_palette (
+    -- Color palette table
+    CREATE TABLE IF NOT EXISTS color_palette (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL,
       hex TEXT NOT NULL,
@@ -47,7 +81,7 @@ export function initializeDatabase(db: Database.Database): void {
     );
 
     -- Rooms table
-    CREATE TABLE rooms (
+    CREATE TABLE IF NOT EXISTS rooms (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL,
       name TEXT NOT NULL,
@@ -64,7 +98,7 @@ export function initializeDatabase(db: Database.Database): void {
     );
 
     -- Room images table
-    CREATE TABLE room_images (
+    CREATE TABLE IF NOT EXISTS room_images (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       room_id INTEGER NOT NULL,
       url TEXT NOT NULL,
@@ -77,7 +111,7 @@ export function initializeDatabase(db: Database.Database): void {
     );
 
     -- Messages table (project-level messages only)
-    CREATE TABLE messages (
+    CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL,
       room_id INTEGER,
@@ -89,8 +123,8 @@ export function initializeDatabase(db: Database.Database): void {
       FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL
     );
 
-    -- Room messages table (NEW - per-room messages)
-    CREATE TABLE room_messages (
+    -- Room messages table (per-room messages)
+    CREATE TABLE IF NOT EXISTS room_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL,
       room_id INTEGER NOT NULL,
@@ -103,7 +137,7 @@ export function initializeDatabase(db: Database.Database): void {
     );
 
     -- Shared designs table
-    CREATE TABLE shared_designs (
+    CREATE TABLE IF NOT EXISTS shared_designs (
       id TEXT PRIMARY KEY,
       project_id INTEGER NOT NULL,
       created_at TEXT DEFAULT (datetime('now')),
@@ -111,15 +145,20 @@ export function initializeDatabase(db: Database.Database): void {
     );
 
     -- Create indexes for better query performance
-    CREATE INDEX idx_projects_user_id ON projects(user_id);
-    CREATE INDEX idx_color_palette_project_id ON color_palette(project_id);
-    CREATE INDEX idx_rooms_project_id ON rooms(project_id);
-    CREATE INDEX idx_room_images_room_id ON room_images(room_id);
-    CREATE INDEX idx_messages_project_id ON messages(project_id);
-    CREATE INDEX idx_messages_room_id ON messages(room_id);
-    CREATE INDEX idx_room_messages_project_room ON room_messages(project_id, room_id);
-    CREATE INDEX idx_room_messages_room_id ON room_messages(room_id);
-    CREATE INDEX idx_shared_designs_project_id ON shared_designs(project_id);
+    CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id);
+    CREATE INDEX IF NOT EXISTS idx_color_palette_project_id ON color_palette(project_id);
+    CREATE INDEX IF NOT EXISTS idx_rooms_project_id ON rooms(project_id);
+    CREATE INDEX IF NOT EXISTS idx_room_images_room_id ON room_images(room_id);
+    CREATE INDEX IF NOT EXISTS idx_messages_project_id ON messages(project_id);
+    CREATE INDEX IF NOT EXISTS idx_messages_room_id ON messages(room_id);
+    CREATE INDEX IF NOT EXISTS idx_room_messages_project_room ON room_messages(project_id, room_id);
+    CREATE INDEX IF NOT EXISTS idx_room_messages_room_id ON room_messages(room_id);
+    CREATE INDEX IF NOT EXISTS idx_shared_designs_project_id ON shared_designs(project_id);
+
+    -- Better Auth indexes
+    CREATE INDEX IF NOT EXISTS idx_session_user_id ON session(userId);
+    CREATE INDEX IF NOT EXISTS idx_session_token ON session(token);
+    CREATE INDEX IF NOT EXISTS idx_account_user_id ON account(userId);
   `);
 
   // Add migration for annotated floor plan URL
