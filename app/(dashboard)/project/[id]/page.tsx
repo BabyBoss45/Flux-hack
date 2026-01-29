@@ -9,7 +9,6 @@ import { Header } from '@/components/layout/header';
 import { RoomGrid } from '@/components/rooms/room-grid';
 import { RoomImageViewer } from '@/components/rooms/room-image-viewer';
 import { ChatWrapper } from '@/components/chat/chat-wrapper';
-import { ItemEditDialog } from '@/components/chat/item-edit-dialog';
 import { FloorplanUploader } from '@/components/floorplan/floorplan-uploader';
 import { ManualRoomEntry } from '@/components/floorplan/manual-room-entry';
 import { ServiceStatusBanner } from '@/components/floorplan/service-status-banner';
@@ -60,11 +59,8 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingImageId, setEditingImageId] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(false);
-  const [selectedObject, setSelectedObject] = useState<{ id: string; label: string } | null>(null);
   const [briefExpanded, setBriefExpanded] = useState(false);
 
   // Calculate current step
@@ -403,16 +399,37 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     }
   };
 
-  const handleEditImage = (imageId: number) => {
-    setEditingImageId(imageId);
-    setEditDialogOpen(true);
-  };
+  // Handle image added from canvas editor
+  const handleImageAdded = (imageUrl: string) => {
+    // Create a temporary image to display immediately
+    const newImage: RoomImage = {
+      id: Date.now(),
+      url: imageUrl,
+      prompt: '[Inpaint] Edited image',
+      view_type: 'variation',
+      detected_items: '[]',
+      is_final: 0,
+      created_at: new Date().toISOString(),
+    };
+    setRoomImages([newImage, ...roomImages]);
+    setCurrentImageIndex(0);
 
-  const handleObjectSelect = (object: { id: string; label: string; category?: string; bbox?: [number, number, number, number] }) => {
-    setSelectedObject({ id: object.id, label: object.label });
-    
-    // Auto-focus chat input and prepend object context
-    // The chat placeholder will show "Editing [object]..." which guides the user
+    // Sync with API in background
+    setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/rooms/${selectedRoomId}/images`);
+        if (res.ok) {
+          const data = await res.json();
+          const newImages = data.images || [];
+          if (newImages.length > 0) {
+            setRoomImages(newImages);
+            setCurrentImageIndex(0);
+          }
+        }
+      } catch (error) {
+        // Silent fail
+      }
+    }, 1000);
   };
 
   // Handle wizard completion - save preferences and auto-generate images for all rooms
@@ -830,8 +847,8 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                         images={roomImages}
                         currentIndex={currentImageIndex}
                         onIndexChange={setCurrentImageIndex}
-                        onObjectSelect={handleObjectSelect}
-                        selectedObjectId={selectedObject?.id || null}
+                        roomId={selectedRoomId}
+                        onImageAdded={handleImageAdded}
                         onImageLoad={() => setIsImageLoading(false)}
                       />
                     </div>
@@ -895,15 +912,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   <ChatWrapper
                     projectId={projectId}
                     roomId={selectedRoomId}
-                    selectedObjectId={selectedObject?.id || null}
-                    onEditImage={handleEditImage}
                     onLoadingChange={setIsGenerating}
                     onImageGenerated={handleImageGenerated}
-                    placeholder={
-                      selectedObject
-                        ? `Editing ${selectedObject.label}...`
-                        : `Describe your ${selectedRoom?.name || 'room'} design...`
-                    }
+                    placeholder={`Describe your ${selectedRoom?.name || 'room'} design...`}
                   />
                 </div>
               </div>
@@ -919,19 +930,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
           initialPreferences={preferences}
           onSave={handlePreferencesSave}
         />
-
-        {editingImageId && (
-          <ItemEditDialog
-            open={editDialogOpen}
-            onOpenChange={setEditDialogOpen}
-            imageId={editingImageId}
-            imageUrl={roomImages.find((img) => img.id === editingImageId)?.url || ''}
-            onSubmit={async (imageId, prompt) => {
-              // Send edit request through chat
-              console.log('Edit image:', imageId, prompt);
-            }}
-          />
-        )}
       </div>
     );
   }
