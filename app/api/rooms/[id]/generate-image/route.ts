@@ -43,14 +43,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   console.log('[generate-image] POST request received');
-  
+
   try {
     const session = await getSession();
     if (!session) {
       console.log('[generate-image] Unauthorized - no session');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     console.log('[generate-image] Session valid, user:', session.user.id);
 
     const { id } = await params;
