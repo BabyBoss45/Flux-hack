@@ -23,10 +23,12 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check for session using Better Auth
+  // Use internal HTTP URL to avoid SSL issues when behind a reverse proxy
+  const internalBaseURL = process.env.INTERNAL_URL || `http://localhost:${process.env.PORT || 3001}`;
   const { data: session } = await betterFetch<{ session: { id: string } | null }>(
     '/api/auth/get-session',
     {
-      baseURL: request.nextUrl.origin,
+      baseURL: internalBaseURL,
       headers: {
         cookie: request.headers.get('cookie') || '',
       },
