@@ -98,6 +98,9 @@ A conversational AI-powered interior design tool that transforms floor plans int
 ### 1. Floor Plan Upload & Analysis
 
 **Upload:**
+- Accept PDF, PNG, JPEG files containing floor plans
+- Display upload progress via Server-Sent Events (SSE)
+- Maximum file size: configurable (recommended 10MB)
 
 - Accept PDF, PNG, JPEG files containing floor plans
 - Display upload progress via Server-Sent Events (SSE)
@@ -191,8 +194,10 @@ tools: {
     // Returns image URL + detected items list
   },
   edit_room_image: {
-    // Calls Runware image editing API
-    // Routed through Klein system for intent parsing
+    // Calls Runware image editing API (inpainting)
+    // Uses seedImage + maskImage with bfl:1@2 (FLUX Pro) model
+    // Note: strength/width/height params not supported by fluxpro
+    // Alternative: Klein system for text-based intent parsing
     // Returns updated image URL + refreshed items list
   },
   scan_image_items: {
@@ -240,11 +245,16 @@ Klein is a specialized subsystem for parsing and executing image edit intents.
   - Color palette
   - Specific requests from conversation
 
-**Image Editing:**
+**Image Editing (Inpainting):**
 
-- Text-description only (no mask drawing UI)
-- User describes changes in natural language
-- Klein system parses intent and determines edit parameters
+- Canvas-based mask drawing UI for precise area selection
+- User draws mask on image, then describes desired changes
+- Uses Runware API with `seedImage` and `maskImage` parameters
+- Model: `bfl:1@2` (FLUX Pro) - inherits dimensions from seedImage automatically
+- **API Limitations (fluxpro architecture):**
+  - `strength` parameter not supported
+  - `width`/`height` parameters not supported (uses input image dimensions)
+- Alternative: Text-description edits via Klein system for natural language changes
 
 **Object Detection:**
 
@@ -292,7 +302,6 @@ interface RoomImage {
 ```
 
 **Key Behaviors:**
-
 - Latest state only (no version history)
 - Multiple images allowed per room
 - `is_final` marks the hero image shown in share view
@@ -463,7 +472,6 @@ CREATE TABLE shared_designs (
 - `GET /api/floor-plan/health` - LLM service health check
 
 ### Projects
-
 - `POST /api/projects` - Create new project
 - `GET /api/projects` - List user's projects
 - `GET /api/projects/[id]` - Get project details
@@ -478,7 +486,6 @@ CREATE TABLE shared_designs (
 - `DELETE /api/projects/[id]/colors/[colorId]` - Remove color
 
 ### Rooms
-
 - `GET /api/projects/[id]/rooms` - Get all rooms for project
 - `POST /api/projects/[id]/rooms` - Create room (manual entry)
 - `GET /api/rooms/[id]` - Get room details
@@ -493,6 +500,7 @@ CREATE TABLE shared_designs (
 - `POST /api/rooms/[id]/images/[imageId]/save-final` - Mark image as final
 
 ### Chat
+- `POST /api/chat` - Vercel AI chat endpoint with streaming + tool calling
 
 - `POST /api/chat` - Vercel AI chat endpoint with streaming + tool calling
 
@@ -511,7 +519,6 @@ CREATE TABLE shared_designs (
 - `POST /api/llm/analyze-and-shop` - Analyze image + find similar products
 
 ### Share
-
 - `POST /api/share` - Generate shareable design link
 - `GET /api/share/[uuid]` - Get shared design data (public)
 
@@ -609,6 +616,7 @@ Legend: ✓ Approved  ● Current  ○ Pending
 | `ManualRoomEntry`       | Fallback room entry form            |
 | `ChatWrapper/ChatPanel` | AI chat interface with streaming    |
 | `RoomImageViewer`       | Image gallery with object detection |
+| `CanvasEditor`          | Mask-based inpainting with drawing  |
 | `RoomSidebar/RoomGrid`  | Room navigation with status         |
 | `ItemEditDialog`        | Object editing modal                |
 | `PreferencesDialog`     | Global settings editor              |
@@ -672,7 +680,6 @@ Deployment architecture documented separately in `DEPLOYMENT.md`.
 - Full furniture purchasing (search only)
 - Cost estimation
 - Version history / undo
-- Mask-based image editing
 - Multiple aspect ratios (16:9 only)
 - User-selectable AI models
 - Multiple projects per share link

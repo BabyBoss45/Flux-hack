@@ -1,6 +1,6 @@
 import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
-import { generateImage, editImage } from '@/lib/bfl/client';
+import { generateImage } from '@/lib/bfl/client';
 import { pollForResult } from '@/lib/bfl/polling';
 import {
   getRoomById,
@@ -305,7 +305,7 @@ async function generateWithRetry(
 export function createAiTools(
   _projectId: number,
   currentRoomId: number | null,
-  preferences: Record<string, string>
+  _preferences: Record<string, string>
 ) {
   return {
     generate_room_image: tool({
@@ -384,126 +384,6 @@ export function createAiTools(
           return {
             success: false,
             error: error instanceof Error ? error.message : 'Generation failed',
-          };
-        }
-      },
-    }),
-
-    edit_room_image: tool({
-      description:
-        'Edit an existing room image to modify specific elements. Includes edit type inference, ambiguity detection, and constraint validation.',
-      inputSchema: zodSchema(
-        z.object({
-          image_url: z
-            .string()
-            .describe('Source image URL to edit'),
-          room_id: z
-            .number()
-            .optional()
-            .describe('Room ID for constraint validation (defaults to current room)'),
-          target_item: z
-            .string()
-            .describe("Item to modify (e.g., 'sofa', 'lamp near window')"),
-          edit_instruction: z
-            .string()
-            .describe("What to do (e.g., 'change to blue velvet', 'remove')"),
-        })
-      ),
-      execute: async ({ image_url, room_id, target_item, edit_instruction }) => {
-        const targetRoomId = room_id || currentRoomId;
-        if (!targetRoomId) {
-          return { success: false, error: 'No room selected' };
-        }
-
-        const room = getRoomById(targetRoomId);
-        if (!room) {
-          return { success: false, error: 'Room not found' };
-        }
-
-        // Infer edit type from instruction
-        const editType = inferEditType(edit_instruction);
-
-        // Validate constraints before proceeding
-        const constraintCheck = validateEditConstraints(target_item, edit_instruction, room);
-        if (!constraintCheck.valid) {
-          return {
-            success: false,
-            error: constraintCheck.error,
-          };
-        }
-
-        // Get existing detected items from the most recent image
-        const images = getRoomImagesByRoomId(targetRoomId);
-        const sourceImage = images.find((img) => img.url === image_url);
-        let existingItems: DetectedItem[] = [];
-
-        if (sourceImage) {
-          try {
-            const parsed = JSON.parse(sourceImage.detected_items || '[]');
-            existingItems = Array.isArray(parsed) ? parsed : [];
-          } catch {
-            existingItems = [];
-          }
-        }
-
-        // Check for ambiguity if we have detected items
-        if (existingItems.length > 0) {
-          const ambiguity = checkAmbiguity(target_item, existingItems);
-          if (ambiguity) {
-            return {
-              success: false,
-              error: ambiguity,
-            };
-          }
-        }
-
-        try {
-          // Fetch the original image and convert to base64
-          const imageResponse = await fetch(image_url);
-          const imageBuffer = await imageResponse.arrayBuffer();
-          const base64Image = Buffer.from(imageBuffer).toString('base64');
-
-          // Build edit prompt combining target and instruction
-          const editPrompt = `${editType} the ${target_item}: ${edit_instruction}`;
-
-          // Start edit job
-          const job = await editImage({
-            image: base64Image,
-            prompt: editPrompt,
-          });
-
-          // Poll for result
-          const result = await pollForResult(job.id);
-
-          if (result.success && result.imageUrl) {
-            // Full re-scan of items after edit
-            const detectedItems = await scanImageItems(result.imageUrl, room.type);
-
-            // Save new image version (preserves original)
-            const newImage = createRoomImage(
-              targetRoomId,
-              result.imageUrl,
-              `Edit: ${target_item} - ${edit_instruction}`,
-              'variation',
-              JSON.stringify(detectedItems)
-            );
-
-            return {
-              success: true,
-              image_id: newImage?.id,
-              image_url: result.imageUrl,
-              edit_type: editType,
-              edit_applied: `${editType} ${target_item}: ${edit_instruction}`,
-              detected_items: detectedItems,
-              message: `Edited the ${room.name}: ${editType} ${target_item}`,
-            };
-          }
-
-          return { success: false, error: result.error || 'Edit failed' };
-        } catch (error) {
-          return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Edit failed',
           };
         }
       },
